@@ -1,4 +1,4 @@
 iMeshDeform
 ===========
 
-interactive mesh deformation addon for blender
+interactive mesh deformation
