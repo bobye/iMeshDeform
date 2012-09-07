@@ -11,15 +11,16 @@ namespace subspace {
   public:
     GLuint LIST_NAME; //name of display list
     // mesh data
-    TriMesh *mesh;
+    TriMesh *mesh;    
     // center point
     Point center;
     // bounding box
-    GLfloat bbox[6];
+    GLfloat bbox[6], size;
     // transformer
     GLfloat transMat[16];
     // selected vertices
     bool selected_status;
+    // transformation matrix and its buffer
 
     std::vector<int> selected_vertices;
 
@@ -39,12 +40,14 @@ namespace subspace {
     // transformer
     static Scene * currentScene;
     Scene(int , char**);
-    GLfloat transMat[16];
+    
 
     static void display();
     static void reshape(int, int);
     static void keyboard(unsigned char, int, int);
+    static void skeyboard(int, int, int);
     static void motion(int, int);
+    static void pmotion(int, int);
     static void mouse(int, int, int, int);
     void init(Object*);
     void add_lights();

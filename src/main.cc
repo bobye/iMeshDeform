@@ -4,7 +4,7 @@
 int main(int argc, char *argv[])
 {
   subspace::TriMesh mesh;
-  mesh.read("test","off");
+  mesh.read("test2","off");
   mesh.update_internal();
 
   subspace::Scene scene(argc, argv);
