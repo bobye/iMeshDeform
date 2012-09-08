@@ -11,10 +11,16 @@ namespace subspace {
   int transform_x=0., transform_y=0.;
   GLfloat ground_wire = 30;
 
-  bool view_translate = false , view_rotate = false, 
-    object_translate = false, object_rotate = false,
+  bool object_rotate_switch = false,
     orthOrNot=false,
     wireOrNot=false;
+
+  char current_state = 0x00000000;
+#define LOCK_VIEW_TRANSLATE   0x01
+#define LOCK_VIEW_ROTATE      0x02
+#define LOCK_OBJECT_TRANSLATE 0x04
+#define LOCK_OBJECT_ROTATE    0x08
+
 
   GLfloat CTM[16], transMat_buffer[16];
 
@@ -104,6 +110,59 @@ namespace subspace {
     glDisable(GL_COLOR_MATERIAL);
   }
 
+
+
+  inline void MatxTranslate(GLfloat* Mat, GLfloat* BMat, GLdouble x, GLdouble y, GLdouble z) {
+    for (int i=0; i<12; ++i) Mat[i] = BMat[i];
+    Mat[12] = BMat[12] + BMat[0] * x + BMat[4] * y + BMat[8] * z;
+    Mat[13] = BMat[13] + BMat[1] * x + BMat[5] * y + BMat[9] * z;
+    Mat[14] = BMat[14] + BMat[2] * x + BMat[6] * y + BMat[10]* z;
+  }
+  inline void MatxMat(GLfloat*Mat, GLfloat* MMat) {
+    GLfloat BMat[16];
+    for (int i=0; i<16; ++i) { BMat[i] = Mat[i]; Mat[i] =0;}
+    for (int i=0; i<4; ++i)
+      for (int j=0; j<4; ++j)
+	for (int k=0; k<4; ++k)
+	  Mat[4*i+j] += BMat[4*k+j] * MMat[4*i+k];
+    
+  }
+  inline void MatxVec(GLfloat*Mat, GLdouble &x, GLdouble &y, GLdouble &z) {
+    GLdouble mx,my,mz;
+    mx = Mat[12] + Mat[0] * x + Mat[4] * y + Mat[8] * z;
+    my = Mat[13] + Mat[1] * x + Mat[5] * y + Mat[9] * z;
+    mz = Mat[14] + Mat[2] * x + Mat[6] * y + Mat[10]* z;
+    x = mx; y = my; z = mz;
+  }
+
+  inline void MatxRotate(GLfloat* Mat, GLfloat* BMat, GLdouble axis_x, GLdouble axis_y, GLdouble axis_z, GLdouble sin, GLdouble cos, GLdouble center_x, GLdouble center_y, GLdouble center_z) {
+    GLfloat RTM[16];
+    GLdouble xy, xz, yz;
+
+    xy = axis_x * axis_y * (1-cos);
+    xz = axis_x * axis_z * (1-cos);
+    yz = axis_y * axis_z * (1-cos);
+    RTM[0] = axis_x * axis_x * (1-cos) + cos;
+    RTM[1] = xy + axis_z * sin;
+    RTM[2] = xz - axis_y * sin;
+
+    RTM[4] = xy - axis_z * sin;
+    RTM[5] = axis_y * axis_y * (1-cos) + cos;
+    RTM[6] = yz + axis_x * sin;
+
+    RTM[8] = xz + axis_y * sin;
+    RTM[9] = yz - axis_x * sin;
+    RTM[10]= axis_z * axis_z * (1-cos) + cos;
+
+    RTM[3]=RTM[7]=RTM[11]=RTM[12]=RTM[13]=RTM[14]=0;
+    RTM[15] =1;
+
+
+    MatxTranslate(Mat, BMat, center_x, center_y, center_z);
+    MatxMat(Mat, RTM);
+    MatxTranslate(Mat, Mat, -center_x, -center_y, -center_z);
+	
+  }
 
 
   Scene::Scene(int argc, char** argv) 
@@ -217,7 +276,8 @@ namespace subspace {
   }
 
   void Scene::init(Object* obj) {
-    object = obj; cursor = object->center;
+    context = obj; object = obj; 
+    cursor = context->center;
 
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glClearDepth(1.0);
@@ -340,7 +400,7 @@ namespace subspace {
     
     if (orthOrNot) {
       glOrtho(  - win_world_radio *  w/2,   + win_world_radio * w/2,
-		- win_world_radio *  h/2,  +  win_world_radio * h/2,
+		- win_world_radio *  h/2,   + win_world_radio * h/2,
 		//100000, -100000);
 		currentScene->object->size,   20* currentScene->object->size);//(NEW) set up our viewing area
     }
@@ -396,10 +456,11 @@ namespace subspace {
     }
     else if (key == '.') { // focus to object view
       glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
-      GLfloat cx,cy,cz;
+      GLdouble cx,cy,cz;
       cx = currentScene->cursor.x(); 
       cy = currentScene->cursor.y();
       cz = currentScene->cursor.z();
+      MatxVec(currentScene->context->transMat, cx, cy, cz);
       CTM[12] = - cx * CTM[0] - cy * CTM[4] - cz * CTM[8];
       CTM[13] = - cx * CTM[1] - cy * CTM[5] - cz * CTM[9];
       CTM[14] = - cx * CTM[2] - cy * CTM[6] - cz * CTM[10];
@@ -408,44 +469,88 @@ namespace subspace {
       
       glutPostRedisplay();
     }
-    else if (key == 'g') {
-      object_translate =true;
-      glPushMatrix();
-      glMultMatrixf(currentScene->object->transMat);
+    else if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
+      if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
+	GLfloat *transMat = currentScene->context->transMat;
+	transMat[12] = transMat[13] = transMat[14] = 0;
+	glutPostRedisplay();
+      }else {
+	current_state |= LOCK_OBJECT_TRANSLATE;	
+	
+	glPushMatrix();
+	glMultMatrixf(currentScene->context->transMat);
       
-      GLdouble modelview[16], projection[16];
-      int viewport[4];
+	GLdouble modelview[16], projection[16];
+	int viewport[4];
 
-      glGetDoublev(GL_PROJECTION_MATRIX, projection);
-      glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-      glGetIntegerv( GL_VIEWPORT, viewport );
-      gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &origin_x, &origin_y, &origin_z);
-      for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->object->transMat[i];
-      glPopMatrix();
+	glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+	glGetIntegerv( GL_VIEWPORT, viewport );
+	gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &origin_x, &origin_y, &origin_z);
+	glPopMatrix();
+
+	for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->context->transMat[i];
+      }
     }
-    else if (key == 'r') {
-      object_rotate =true;      
-      glPushMatrix();
-      glMultMatrixf(currentScene->object->transMat);
-      GLdouble modelview[16], projection[16], t;
-      int viewport[4];
+    else if (key == 'r' && !(current_state & ~LOCK_OBJECT_ROTATE)) {
+      if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
+	GLfloat *transMat = currentScene->context->transMat;
+	for (int i =0;i < 16; ++i) transMat_buffer[i] = transMat[i];
+	MatxTranslate(transMat, transMat_buffer, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
+	for (int i=0; i < 12; ++i) transMat[i] = (i%5==0);
+	MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
+	glutPostRedisplay(); return;
+      }
+      
+      if (current_state & LOCK_OBJECT_ROTATE){
+	object_rotate_switch =!object_rotate_switch;
+	for (int i = 0; i < 16; ++i) currentScene->context->transMat[i] = transMat_buffer[i];
+	glutPostRedisplay();
+      } else {
+	for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->context->transMat[i];
+      }
 
-      d2_x = x; d2_y = y;
+      if (object_rotate_switch) {
+	current_state |= LOCK_OBJECT_ROTATE;
+	glPushMatrix();
+	glMultMatrixf(transMat_buffer);
+	GLdouble modelview[16], projection[16];
+	int viewport[4];
 
-      glGetDoublev(GL_PROJECTION_MATRIX, projection);
-      glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-      glGetIntegerv( GL_VIEWPORT, viewport );
-      gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z);
-      gluUnProject(origin_x, origin_y, 2*origin_z+1, modelview, projection, viewport, &axis_x, &axis_y, &axis_z);
-      //rotation axis
-      axis_x -= currentScene->cursor.x(); axis_y -= currentScene->cursor.y(); axis_z-=currentScene->cursor.z();
-      t = std::sqrt(axis_x * axis_x + axis_y * axis_y + axis_z * axis_z);
-      axis_x /= t; axis_y /= t; axis_z /= t; //normalize
+	d2_x = x; d2_y = y;
 
-      for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->object->transMat[i];           
-      glPopMatrix();
+	glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+	glGetIntegerv( GL_VIEWPORT, viewport );
+	glPopMatrix();
+	gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
+
+
+      } else {
+	current_state |= LOCK_OBJECT_ROTATE;
+	glPushMatrix();
+	glMultMatrixf(transMat_buffer);
+	GLdouble modelview[16], projection[16], t;
+	int viewport[4];
+
+	d2_x = x; d2_y = y;
+
+	glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+	glGetIntegerv( GL_VIEWPORT, viewport );
+	gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
+	glPopMatrix();	
+	gluUnProject(origin_x, origin_y, 0, modelview, projection, viewport, &axis_x, &axis_y, &axis_z);
+	//rotation axis
+	axis_x -= currentScene->cursor.x(); axis_y -= currentScene->cursor.y(); axis_z-=currentScene->cursor.z();
+	t = std::sqrt(axis_x * axis_x + axis_y * axis_y + axis_z * axis_z);
+	axis_x /= t; axis_y /= t; axis_z /= t; //normalize	
+	origin_y = viewport[3] - origin_y;
+
+      }
     }
   }
+
 
   void Scene::skeyboard(int key, int x, int y) {
     if (key == GLUT_KEY_UP) {
@@ -480,7 +585,7 @@ namespace subspace {
 
 
   void Scene::motion(int x, int y) {    
-    if (view_translate) {
+    if (current_state & LOCK_VIEW_TRANSLATE) {
       
       glLoadIdentity();
       glTranslated((x-origin_x)*win_world_radio, - (y-origin_y)*win_world_radio, 0);
@@ -488,11 +593,11 @@ namespace subspace {
       glutPostRedisplay();
     }
 
-    else if (view_rotate) {
+    else if (current_state & LOCK_VIEW_ROTATE) {
       glLoadIdentity();
       
-      glRotatef(360.0 * (x-origin_x)/currentScene->width/3.14159265, 0.0, 1.0, 0.0);
-      glRotatef(360.0 * (y-origin_y)/currentScene->height/3.14159265, 1.0, 0.0, 0.0);
+      glRotatef(360.0 * (x-origin_x)/currentScene->width/SS_PI, 0.0, 1.0, 0.0);
+      glRotatef(360.0 * (y-origin_y)/currentScene->height/SS_PI, 1.0, 0.0, 0.0);
 
       glMultMatrixf(CTM);	
 
@@ -503,91 +608,69 @@ namespace subspace {
   }
 
 
-  inline void MatxTranslate(GLfloat* Mat, GLfloat* BMat, GLdouble x, GLdouble y, GLdouble z) {
-    for (int i=0; i<12; ++i) Mat[i] = BMat[i];
-    Mat[12] = BMat[12] + BMat[0] * x + BMat[4] * y + BMat[8] * z;
-    Mat[13] = BMat[13] + BMat[1] * x + BMat[5] * y + BMat[9] * z;
-    Mat[14] = BMat[14] + BMat[2] * x + BMat[6] * y + BMat[10]* z;
-  }
-
-  inline void MatxMat(GLfloat*Mat, GLfloat* MMat) {
-    GLfloat BMat[16];
-    for (int i=0; i<16; ++i) { BMat[i] = Mat[i]; Mat[i] =0;}
-    for (int i=0; i<4; ++i)
-      for (int j=0; j<4; ++j)
-	for (int k=0; k<4; ++k)
-	  Mat[4*i+j] += BMat[4*k+j] * MMat[4*i+k];
-    
-  }
 
   void Scene::pmotion(int x, int y) {
-    if (object_translate) {
+    if (current_state & LOCK_OBJECT_TRANSLATE) {
       glPushMatrix();
       glMultMatrixf(transMat_buffer);
 
       GLdouble modelview[16], projection[16], tx, ty, tz;
-      GLfloat *transMat = currentScene->object->transMat;
+      GLfloat *transMat = currentScene->context->transMat;
       int viewport[4];
 
 
       glGetDoublev(GL_PROJECTION_MATRIX, projection);
       glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-      glGetIntegerv( GL_VIEWPORT, viewport );
-      gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, 
-		   &tx, &ty, &tz);             
+      glGetIntegerv( GL_VIEWPORT, viewport ); 
+      glPopMatrix();
+      gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &tx, &ty, &tz);
       tx -=origin_x; ty-=origin_y; tz-=origin_z;
       MatxTranslate(transMat, transMat_buffer, tx, ty, tz);
-      glPopMatrix();
+
       glutPostRedisplay();
     }    
-    else if (object_rotate) {
-      GLdouble sin, cos; GLfloat RTM[16];
-      GLdouble v1_x, v1_y, v2_x, v2_y, v1, v2;
-      v1_x = d2_x - origin_x; v1_y = d2_y - origin_y;
-      v2_x = x - origin_x; v2_y = y - origin_y;
-      v1 = std::sqrt(v1_x * v1_x + v1_y * v1_y);
-      v2 = std::sqrt(v2_x * v2_x + v2_y * v2_y);
-      v1_x /= v1; v1_y /= v1;
-      v2_x /= v2; v2_y /= v2;
+    else if (current_state & LOCK_OBJECT_ROTATE) {
+      if (object_rotate_switch) {
+	glPushMatrix();
+	glMultMatrixf(transMat_buffer);
+	GLdouble modelview[16], projection[16],t;
+	int viewport[4];
 
-      v1=v1_x - v2_x; v2=v1_y - v2_y;
+
+	glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+	glGetIntegerv( GL_VIEWPORT, viewport );
+	glPopMatrix();
+
+	gluUnProject(origin_x + (y-d2_y), origin_y + (x-d2_x), origin_z, modelview, projection, viewport,  &axis_x, &axis_y, &axis_z);
+	axis_x -= currentScene->cursor.x();
+	axis_y -= currentScene->cursor.y();
+	axis_z -= currentScene->cursor.z();
+	t = std::sqrt(axis_x * axis_x + axis_y * axis_y + axis_z * axis_z);
+	axis_x /= t; axis_y /= t; axis_z /= t; //normalize	
+
+	t = 2*SS_PI * std::sqrt(((x-d2_x)*(x-d2_x) + (y-d2_y)*(y-d2_y))/(viewport[2]*viewport[2]+viewport[3]*viewport[3])) ;
+	GLdouble sin,cos;
+	sin = std::sin(t); cos = std::cos(t);
+	MatxRotate(currentScene->context->transMat, transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
+
+      } else {
+	GLdouble sin, cos; 
+	GLdouble v1_x, v1_y, v2_x, v2_y, v1, v2;
+	v1_x = d2_x - origin_x; v1_y = d2_y - origin_y;
+	v2_x = x - origin_x; v2_y = y - origin_y;
+	v1 = std::sqrt(v1_x * v1_x + v1_y * v1_y);
+	v2 = std::sqrt(v2_x * v2_x + v2_y * v2_y);
+	v1_x /= v1; v1_y /= v1;
+	v2_x /= v2; v2_y /= v2;
+
+	v1=v1_x - v2_x; v2=v1_y - v2_y;
       
-      sin = v1_y * v2_x - v1_x * v2_y;
-      cos = (1+1-(v1*v1+v2*v2))/2;
+	sin = v1_y * v2_x - v1_x * v2_y;
+	cos = (1+1-(v1*v1+v2*v2))/2;
+	MatxRotate(currentScene->context->transMat, transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
 
-      GLdouble xy, xz, yz;
-
-      xy = axis_x * axis_y * (1-cos);
-      xz = axis_x * axis_z * (1-cos);
-      yz = axis_y * axis_z * (1-cos);
-      RTM[0] = axis_x * axis_x * (1-cos) + cos;
-      RTM[1] = xy + axis_z * sin;
-      RTM[2] = xz - axis_y * sin;
-
-      RTM[4] = xy - axis_z * sin;
-      RTM[5] = axis_y * axis_y * (1-cos) + cos;
-      RTM[6] = yz + axis_x * sin;
-
-      RTM[8] = xz + axis_y * sin;
-      RTM[9] = yz - axis_x * sin;
-      RTM[10]= axis_z * axis_z * (1-cos) + cos;
-
-      RTM[3]=RTM[7]=RTM[11]=RTM[12]=RTM[13]=RTM[14]=0;
-      RTM[15] =1;
-      /*
-      for (int i=0; i< 4; ++i){
-	for (int j=0; j<4; ++j)
-	  std::cout << RTM[i+4*j] << " ";
-	std::cout << std::endl;
       }
-      */
-
-      GLfloat *transMat = currentScene->object->transMat;
-
-      MatxTranslate(transMat, transMat_buffer, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
-      MatxMat(transMat, RTM);
-      MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
-
       glutPostRedisplay();
       
     }
@@ -605,7 +688,7 @@ namespace subspace {
   void Scene::mouse(int button, int state, int x, int y) {
     switch(button) {
     case GLUT_MIDDLE_BUTTON:
-      if (state == GLUT_DOWN) {
+      if (state == GLUT_DOWN && !(current_state & ~LOCK_VIEW_TRANSLATE)) {
 	/*
 	glLoadIdentity();
 	scale =1.;
@@ -615,29 +698,32 @@ namespace subspace {
 
 	if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) {
 	  origin_x = x; origin_y = y; 
-	  view_translate =true;
+	  current_state |= LOCK_VIEW_TRANSLATE;
+
 	  glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
 	}
 	else {
-	  origin_x = x; origin_y = y; view_rotate =true;
+	  origin_x = x; origin_y = y; 
+	  current_state |= LOCK_VIEW_ROTATE;
 	  glGetFloatv(GL_MODELVIEW_MATRIX, CTM);	  
 	}
       }
       else if (state == GLUT_UP) {
-	if (view_translate) {
-	  view_translate = false;
+	if (current_state & LOCK_VIEW_TRANSLATE) {
+	  current_state &= ~LOCK_VIEW_TRANSLATE;
 	  glutPostRedisplay();
 	}
-	else if (view_rotate) {
-	  view_rotate = false;
+	else if (current_state & LOCK_VIEW_ROTATE) {
+	  current_state &= ~LOCK_VIEW_ROTATE;
 	  glutPostRedisplay();	  
 	}
       }
       break;
     case GLUT_LEFT_BUTTON:
       if (state == GLUT_DOWN) {	
-	if (object_translate) object_translate = false;	
-	if (object_rotate) object_rotate = false;
+	if (current_state & LOCK_OBJECT_TRANSLATE) current_state &= ~LOCK_OBJECT_TRANSLATE;	
+	else if (current_state & LOCK_OBJECT_ROTATE) { current_state &= ~LOCK_OBJECT_ROTATE; object_rotate_switch = false;}
+
 	glutPostRedisplay();
       }
       else if (state == GLUT_UP) {
@@ -645,14 +731,16 @@ namespace subspace {
       break;
     case GLUT_RIGHT_BUTTON:
       if (state == GLUT_DOWN) {
-	if (object_translate) {
-	  object_translate = false;	
-	  for (int i=0; i<16; ++i) currentScene->object->transMat[i] = transMat_buffer[i];
+	if (current_state & LOCK_OBJECT_TRANSLATE) {
+	  current_state &= ~LOCK_OBJECT_TRANSLATE;
+	  for (int i=0; i<16; ++i) currentScene->context->transMat[i] = transMat_buffer[i];
 	}
-	if (object_rotate) {
-	  object_rotate = false;
-	  for (int i=0; i<16; ++i) currentScene->object->transMat[i] = transMat_buffer[i];	  
+	if (current_state & LOCK_OBJECT_ROTATE) {
+	  current_state &= ~LOCK_OBJECT_ROTATE;
+	  object_rotate_switch = false;
+	  for (int i=0; i<16; ++i) currentScene->context->transMat[i] = transMat_buffer[i];	  
 	}
+
 	glutPostRedisplay();
       }
       else if (state == GLUT_UP) {
