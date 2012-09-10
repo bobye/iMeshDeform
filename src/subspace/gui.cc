@@ -448,7 +448,10 @@ namespace subspace {
     else if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
       if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
 	GLfloat *transMat = currentScene->context->transMat;
-	transMat[12] = transMat[13] = transMat[14] = 0;
+	transMat[12] = currentScene->cursor.x();
+	transMat[13] = currentScene->cursor.y();
+	transMat[14] = currentScene->cursor.z();
+	MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
 	glutPostRedisplay();
       }else {
 	current_state |= LOCK_OBJECT_TRANSLATE;	
@@ -469,8 +472,7 @@ namespace subspace {
     else if (key == 'r' && !(current_state & ~LOCK_OBJECT_ROTATE)) {
       if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
 	GLfloat *transMat = currentScene->context->transMat;
-	for (int i =0;i < 16; ++i) transMat_buffer[i] = transMat[i];
-	MatxTranslate(transMat, transMat_buffer, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
+	MatxTranslate(transMat, transMat, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
 	for (int i=0; i < 12; ++i) transMat[i] = (i%5==0);
 	MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
 	glutPostRedisplay(); return;
