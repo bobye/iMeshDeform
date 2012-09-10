@@ -44,7 +44,6 @@ namespace subspace {
   }
 
   void Object::draw() {
-    int fn = mesh->facet_num;
 
     glEnable(GL_COLOR_MATERIAL);
     glColor4f(0.3, 0.5, 0.6, 0.75);
@@ -59,7 +58,7 @@ namespace subspace {
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   
     glMultMatrixf(transMat);	  
-    glDrawElements(GL_TRIANGLES, 3*fn, GL_UNSIGNED_INT, mesh->facet_array);
+    glDrawElements(GL_TRIANGLES, 3*mesh->facet_num, GL_UNSIGNED_INT, mesh->facet_array);
 
     //glDisable(GL_BLEND);
     //glDepthMask(GL_TRUE);

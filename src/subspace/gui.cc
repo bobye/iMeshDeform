@@ -115,8 +115,9 @@ namespace subspace {
     glShadeModel(GL_SMOOTH);// Enable Smooth Shading
     
 
-    glEnable(GL_LINE_SMOOTH);
+    //glEnable(GL_LINE_SMOOTH);
     glEnable(GL_POLYGON_SMOOTH);
+    //glLineWidth(0.);
     //glHint(GL_LINE_SMOOTH_HINT, GL_DONT_CARE);
     //glHint(GL_POLYGON_SMOOTH_HINT, GL_DONT_CARE);
     //
@@ -131,7 +132,8 @@ namespace subspace {
     //glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
 
     glEnable(GL_DEPTH_TEST);
-
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.,1.);
 
   }
 
@@ -156,6 +158,16 @@ namespace subspace {
     glEnd();
     
 
+
+    if (current_state & LOCK_MODE_SELECT) {
+      glPushMatrix();//push i-th matrix
+      glPolygonMode(GL_FRONT, GL_FILL);
+      currentScene->object->draw();
+      glPopMatrix();//pop i-th matrix
+      glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_wire);
+    }
+
+
     // draw object
     glPushMatrix();//push i-th matrix
     //glCallList(currentScene->object->LIST_NAME);       
@@ -168,8 +180,10 @@ namespace subspace {
     //    if (current_state & LOCK_MODE_SELECT) 
     //      currentScene->context->draw();
       //    else 
-      currentScene->object->draw();		    
-    
+    currentScene->object->draw();		    
+    if (current_state & LOCK_MODE_SELECT)
+      glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_solid);
+
 
     glDisable(GL_DEPTH_TEST);
     glPushMatrix();
@@ -181,6 +195,7 @@ namespace subspace {
     glEnable(GL_DEPTH_TEST);
 
     glPopMatrix();//pop i-th matrix
+
 
 
 
@@ -254,8 +269,8 @@ namespace subspace {
   void Scene::init(Object* obj) {
     context = obj; object = obj; 
     cursor = context->center;
-
-    glClearColor(0.0, 0.0, 0.0, 0.0);
+    
+    glClearColor(0, 0, 0, 0.0);
     glClearDepth(1.0);
 
     //GLfloat center_x = (object->bbox[0] + object->bbox[1]) /2.;
@@ -533,7 +548,7 @@ namespace subspace {
 	current_state |= LOCK_MODE_SELECT;
 	wireOrNot = true;
 	currentScene->context = new VertSelect(currentScene->object);
-	glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color);
+	glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_solid);
 	glEnableClientState(GL_COLOR_ARRAY);
       }
       glutPostRedisplay();
@@ -753,6 +768,13 @@ namespace subspace {
 	  current_state &= ~LOCK_OBJECT_ROTATE;
 	  object_rotate_switch = false;
 	  for (int i=0; i<16; ++i) currentScene->context->transMat[i] = transMat_buffer[i];	  
+	}
+
+	if (current_state & LOCK_MODE_SELECT) {
+	  if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) 
+	    ((VertSelect*) currentScene->context)->register_selected(x-10, viewport[3]-y-10, 21, 21, false, true);	  
+	  else 
+	    ((VertSelect*) currentScene->context)->register_selected(x-10, viewport[3]-y-10, 21, 21, true, true);	  
 	}
 
 	glutPostRedisplay();

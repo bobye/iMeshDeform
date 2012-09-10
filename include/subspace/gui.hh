@@ -41,11 +41,12 @@ namespace subspace {
     TriMesh *mesh;
     bool *selected;
 
+    GLubyte *black;
     GLubyte *index;
-    GLubyte *color;
+    GLubyte *color_solid, *color_wire;
 
     VertSelect(Object*);
-    void register_selected(int,int,int,int,bool);
+    void register_selected(int,int,int,int,bool, bool onlyone=false);
     void destroy();
   };
 
