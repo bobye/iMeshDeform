@@ -13,21 +13,42 @@ namespace subspace {
     Point center;
     // transformer
     GLfloat transMat[16];
+    virtual void destroy();
   };
+
 
   class Object : public Geometry {
   public:
-    GLuint LIST_NAME; //name of display list
     // mesh data
     TriMesh *mesh;    
     // bounding box
     GLfloat bbox[6], size;
-
+    
     Object(TriMesh*);
+
+
     // render!
     void register_mesh();
+    void back_draw();
     void draw();
+    virtual void destroy();
   };
+
+
+  class VertSelect : public Geometry {
+  public:
+    Object  *object;
+    TriMesh *mesh;
+    bool *selected;
+
+    GLubyte *index;
+    GLubyte *color;
+
+    VertSelect(Object*);
+    void register_selected(int,int,int,int,bool);
+    void destroy();
+  };
+
 
   class Scene {
   protected:

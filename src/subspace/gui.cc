@@ -3,12 +3,15 @@
 
 namespace subspace {
 
+
+  void Geometry::destroy(){}
+
   Scene* Scene::currentScene;
 
   GLfloat scale = 1., win_world_radio;
   GLdouble origin_x, origin_y, origin_z, depth, d2_x, d2_y,
     axis_x, axis_y, axis_z;
-  int transform_x=0., transform_y=0.;
+  int transform_x=0, transform_y=0, viewport[4];
   GLfloat ground_wire = 30;
 
   bool object_rotate_switch = false,
@@ -20,7 +23,8 @@ namespace subspace {
 #define LOCK_VIEW_ROTATE      0x02
 #define LOCK_OBJECT_TRANSLATE 0x04
 #define LOCK_OBJECT_ROTATE    0x08
-
+#define LOCK_BACK_BUFFER_SELECT 0x10
+#define LOCK_MODE_SELECT      0x20
 
   GLfloat CTM[16], transMat_buffer[16];
 
@@ -41,74 +45,6 @@ namespace subspace {
 
   const GLfloat perfect_factor = 1.414;
 
-  Object::Object(TriMesh *pmesh) : mesh(pmesh){
-    LIST_NAME =glGenLists(1);
-
-    //compute bounding box
-    for (int i=0;i < mesh->vertex_num; ++i) {
-      if (i==0) {
-	bbox[0] = bbox[1] = mesh->vertex_array[0];
-	bbox[2] = bbox[3] = mesh->vertex_array[1];
-	bbox[4] = bbox[5] = mesh->vertex_array[2];	
-      }
-      else {
-	if (bbox[0] > mesh->vertex_array[3*i])      bbox[0]=mesh->vertex_array[3*i];
-	else if (bbox[1] < mesh->vertex_array[3*i]) bbox[1]=mesh->vertex_array[3*i];
-	if (bbox[2] > mesh->vertex_array[3*i+1])      bbox[2]=mesh->vertex_array[3*i+1];
-	else if (bbox[3] < mesh->vertex_array[3*i+1]) bbox[3]=mesh->vertex_array[3*i+1];
-	if (bbox[4] > mesh->vertex_array[3*i+2])      bbox[4]=mesh->vertex_array[3*i+2];
-	else if (bbox[5] < mesh->vertex_array[3*i+2]) bbox[5]=mesh->vertex_array[3*i+2];
-      }
-    }
-
-    size = bbox[1] - bbox[0];
-    if (size < bbox[3] -bbox[2]) size = bbox[3] - bbox[2];
-    if (size < bbox[5]- bbox[4]) size = bbox[5] - bbox[4];
-
-    center = Point((bbox[0]+bbox[1])/2,(bbox[2]+bbox[3])/2,(bbox[4]+bbox[5])/2);
-
-    for (int i=0; i< 16; ++i) transMat[i] = (i%5 ==0);
-
-
-  }
-
-  void Object::register_mesh() {
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    //load geometric information 
-    glNormalPointer(GL_DOUBLE, 0, mesh->normal_array);
-    glVertexPointer(3, GL_DOUBLE, 0, mesh->vertex_array); 
-  }
-
-  void Object::draw() {
-    int fn = mesh->facet_num;
-
-    glEnable(GL_COLOR_MATERIAL);
-    glColor4f(0.3, 0.5, 0.6, 0.75);
-
-    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT);
-
-    //glCullFace(GL_BACK);
-
-    //glDepthMask(GL_FALSE);
-    //glEnable(GL_BLEND);
-
-    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  
-
-    if (wireOrNot) 
-      glPolygonMode(GL_FRONT, GL_LINE);
-    else
-      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-
-
-    glDrawElements(GL_TRIANGLES, 3*fn, GL_UNSIGNED_INT, mesh->facet_array);
-
-    //glDisable(GL_BLEND);
-    //glDepthMask(GL_TRUE);
-    glDisable(GL_COLOR_MATERIAL);
-  }
 
 
 
@@ -184,7 +120,7 @@ namespace subspace {
     //glHint(GL_LINE_SMOOTH_HINT, GL_DONT_CARE);
     //glHint(GL_POLYGON_SMOOTH_HINT, GL_DONT_CARE);
     //
-    //glEnable(GL_CULL_FACE);
+    glEnable(GL_CULL_FACE);
     //glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
     
     //glutIdleFunc(idle);
@@ -223,10 +159,17 @@ namespace subspace {
     // draw object
     glPushMatrix();//push i-th matrix
     //glCallList(currentScene->object->LIST_NAME);       
-    glMultMatrixf(currentScene->object->transMat);
-    currentScene->object->draw();		    
+    //    glMultMatrixf(currentScene->object->transMat);
+    if (wireOrNot) 
+      glPolygonMode(GL_FRONT, GL_LINE);
+    else
+      glPolygonMode(GL_FRONT, GL_FILL);
 
-
+    //    if (current_state & LOCK_MODE_SELECT) 
+    //      currentScene->context->draw();
+      //    else 
+      currentScene->object->draw();		    
+    
 
     glDisable(GL_DEPTH_TEST);
     glPushMatrix();
@@ -241,6 +184,40 @@ namespace subspace {
 
 
 
+    glPushMatrix();
+    glLoadIdentity();
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+    glColor4f(1, 1, 1, 0.75);
+    if (current_state & LOCK_OBJECT_ROTATE) {
+      glBegin(GL_LINES);
+
+      if (object_rotate_switch) {
+      } else {
+	glVertex2f(2.*(origin_x - viewport[0])/viewport[2] -1, 2.*( - origin_y-viewport[1])/viewport[3] +1);
+	glVertex2f(2.*(transform_x - viewport[0])/viewport[2] -1 , 2.*(- transform_y - viewport[1])/viewport[3] +1);
+      }
+      glEnd();
+    }
+    else if (current_state & LOCK_BACK_BUFFER_SELECT) {
+      glBegin(GL_LINE_LOOP);
+      glVertex2f(2.*(origin_x - viewport[0])/viewport[2] -1, 2.*( - origin_y-viewport[1])/viewport[3] +1);
+      glVertex2f(2.*(origin_x - viewport[0])/viewport[2] -1, 2.*( - transform_y-viewport[1])/viewport[3] +1);
+      glVertex2f(2.*(transform_x - viewport[0])/viewport[2] -1 , 2.*(- transform_y - viewport[1])/viewport[3] +1);
+      glVertex2f(2.*(transform_x - viewport[0])/viewport[2] -1 , 2.*(- origin_y - viewport[1])/viewport[3] +1);
+      glEnd();
+    }
+    
+
+    glEnable(GL_LIGHTING);
+    glEnable(GL_DEPTH_TEST);    
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+
 
 	
 
@@ -254,7 +231,6 @@ namespace subspace {
   void Scene::get_window_world_radio() {
     GLdouble corner1[3], corner2[3];
     GLdouble modelview[16], projection[16];
-    int viewport[4];
 
     glGetDoublev(GL_PROJECTION_MATRIX, projection);
     glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
@@ -321,7 +297,7 @@ namespace subspace {
     object->draw();
     glEndList();
     */
-    get_window_world_radio();
+    get_window_world_radio(); keyboard('.',0,0);
     ground_wire = 5 * ( (int) (100000 * currentScene->height * win_world_radio) / 50) * 0.00001;    
 
 
@@ -419,7 +395,7 @@ namespace subspace {
     glTranslated(0, 0 , - 3 * currentScene->object->size);
 
     glMatrixMode(GL_MODELVIEW);
-    keyboard('.',0,0);
+    //keyboard('.',0,0);
     //gluLookAt( -50 * length_z , 70 * length_z ,  70 * length_z, 0, 0,  - 100 * length_z , 0, 1, 0);
     currentScene->get_window_world_radio();
 
@@ -481,11 +457,9 @@ namespace subspace {
 	glMultMatrixf(currentScene->context->transMat);
       
 	GLdouble modelview[16], projection[16];
-	int viewport[4];
 
 	glGetDoublev(GL_PROJECTION_MATRIX, projection);
 	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-	glGetIntegerv( GL_VIEWPORT, viewport );
 	gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &origin_x, &origin_y, &origin_z);
 	glPopMatrix();
 
@@ -515,13 +489,11 @@ namespace subspace {
 	glPushMatrix();
 	glMultMatrixf(transMat_buffer);
 	GLdouble modelview[16], projection[16];
-	int viewport[4];
 
 	d2_x = x; d2_y = y;
 
 	glGetDoublev(GL_PROJECTION_MATRIX, projection);
 	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-	glGetIntegerv( GL_VIEWPORT, viewport );
 	glPopMatrix();
 	gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
 
@@ -531,13 +503,11 @@ namespace subspace {
 	glPushMatrix();
 	glMultMatrixf(transMat_buffer);
 	GLdouble modelview[16], projection[16], t;
-	int viewport[4];
 
 	d2_x = x; d2_y = y;
 
 	glGetDoublev(GL_PROJECTION_MATRIX, projection);
 	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-	glGetIntegerv( GL_VIEWPORT, viewport );
 	gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
 	glPopMatrix();	
 	gluUnProject(origin_x, origin_y, 0, modelview, projection, viewport, &axis_x, &axis_y, &axis_z);
@@ -548,6 +518,28 @@ namespace subspace {
 	origin_y = viewport[3] - origin_y;
 
       }
+    }
+    else if (key == 9) {// TAB key, entering selection mode
+      if (current_state & LOCK_MODE_SELECT) {
+	current_state &= ~LOCK_MODE_SELECT;
+	wireOrNot = false;
+	currentScene->context->destroy();
+	delete currentScene->context;
+	currentScene->context = currentScene->object;
+	glDisableClientState(GL_COLOR_ARRAY);
+      } else {
+	current_state |= LOCK_MODE_SELECT;
+	wireOrNot = true;
+	currentScene->context = new VertSelect(currentScene->object);
+	glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color);
+	glEnableClientState(GL_COLOR_ARRAY);
+      }
+      glutPostRedisplay();
+    }
+    else if (key == 'b' && (current_state & LOCK_MODE_SELECT)) {
+      current_state |= LOCK_BACK_BUFFER_SELECT;     
+    }
+    else if (key == 'a') {
     }
   }
 
@@ -603,6 +595,10 @@ namespace subspace {
 
       glutPostRedisplay();
     }
+    else if (current_state & LOCK_BACK_BUFFER_SELECT) {      
+      transform_x = x; transform_y =y;
+      glutPostRedisplay();
+    }
 
 
   }
@@ -616,12 +612,10 @@ namespace subspace {
 
       GLdouble modelview[16], projection[16], tx, ty, tz;
       GLfloat *transMat = currentScene->context->transMat;
-      int viewport[4];
 
 
       glGetDoublev(GL_PROJECTION_MATRIX, projection);
       glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-      glGetIntegerv( GL_VIEWPORT, viewport ); 
       glPopMatrix();
       gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &tx, &ty, &tz);
       tx -=origin_x; ty-=origin_y; tz-=origin_z;
@@ -630,16 +624,15 @@ namespace subspace {
       glutPostRedisplay();
     }    
     else if (current_state & LOCK_OBJECT_ROTATE) {
+      transform_x = x; transform_y = y;
       if (object_rotate_switch) {
 	glPushMatrix();
 	glMultMatrixf(transMat_buffer);
 	GLdouble modelview[16], projection[16],t;
-	int viewport[4];
 
 
 	glGetDoublev(GL_PROJECTION_MATRIX, projection);
 	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-	glGetIntegerv( GL_VIEWPORT, viewport );
 	glPopMatrix();
 
 	gluUnProject(origin_x + (y-d2_y), origin_y + (x-d2_x), origin_z, modelview, projection, viewport,  &axis_x, &axis_y, &axis_z);
@@ -688,24 +681,21 @@ namespace subspace {
   void Scene::mouse(int button, int state, int x, int y) {
     switch(button) {
     case GLUT_MIDDLE_BUTTON:
-      if (state == GLUT_DOWN && !(current_state & ~LOCK_VIEW_TRANSLATE)) {
-	/*
-	glLoadIdentity();
-	scale =1.;
-	reshape(currentScene->width, currentScene->height);
-	glutPostRedisplay();
-	*/
+      if (state == GLUT_DOWN) { //&& !(current_state & ~LOCK_VIEW_TRANSLATE)) {
+	if (current_state & LOCK_BACK_BUFFER_SELECT) {
+	  origin_x = x; origin_y = y;
+	} else {
+	  if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) {
+	    origin_x = x; origin_y = y; 
+	    current_state |= LOCK_VIEW_TRANSLATE;
 
-	if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) {
-	  origin_x = x; origin_y = y; 
-	  current_state |= LOCK_VIEW_TRANSLATE;
-
-	  glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
-	}
-	else {
-	  origin_x = x; origin_y = y; 
-	  current_state |= LOCK_VIEW_ROTATE;
-	  glGetFloatv(GL_MODELVIEW_MATRIX, CTM);	  
+	    glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
+	  }
+	  else {
+	    origin_x = x; origin_y = y; 
+	    current_state |= LOCK_VIEW_ROTATE;
+	    glGetFloatv(GL_MODELVIEW_MATRIX, CTM);	  
+	  }
 	}
       }
       else if (state == GLUT_UP) {
@@ -717,16 +707,38 @@ namespace subspace {
 	  current_state &= ~LOCK_VIEW_ROTATE;
 	  glutPostRedisplay();	  
 	}
+	else if (current_state & LOCK_BACK_BUFFER_SELECT) {
+	  current_state &= ~LOCK_BACK_BUFFER_SELECT;
+	  int mx, Mx, my, My, nHeight, nWidth;
+	  if (origin_x > x) { mx = x; Mx = origin_x;} else {mx = origin_x; Mx = x;}
+	  if (origin_y > y) { my = y; My = origin_y;} else {my = origin_y; My = y;}
+
+	  nWidth = Mx -mx +1; nHeight = My-my +1;
+	  
+	  ((VertSelect*) currentScene->context)->register_selected(mx, viewport[3]-My, nWidth, nHeight, false);
+	  glutPostRedisplay();	  
+	}
       }
       break;
     case GLUT_LEFT_BUTTON:
       if (state == GLUT_DOWN) {	
-	if (current_state & LOCK_OBJECT_TRANSLATE) current_state &= ~LOCK_OBJECT_TRANSLATE;	
-	else if (current_state & LOCK_OBJECT_ROTATE) { current_state &= ~LOCK_OBJECT_ROTATE; object_rotate_switch = false;}
+	if (current_state & LOCK_OBJECT_TRANSLATE) { current_state &= ~LOCK_OBJECT_TRANSLATE; glutPostRedisplay(); }
+	else if (current_state & LOCK_OBJECT_ROTATE) { current_state &= ~LOCK_OBJECT_ROTATE; object_rotate_switch = false; glutPostRedisplay();}
+	else if (current_state & LOCK_BACK_BUFFER_SELECT) { origin_x = x; origin_y = y;}
 
-	glutPostRedisplay();
       }
       else if (state == GLUT_UP) {
+	if (current_state & LOCK_BACK_BUFFER_SELECT) {
+	  current_state &= ~LOCK_BACK_BUFFER_SELECT;
+	  int mx, Mx, my, My, nHeight, nWidth;
+	  if (origin_x > x) { mx = x; Mx = origin_x;} else {mx = origin_x; Mx = x;}
+	  if (origin_y > y) { my = y; My = origin_y;} else {my = origin_y; My = y;}
+
+	  nWidth = Mx -mx +1; nHeight = My-my +1;
+	  
+	  ((VertSelect*) currentScene->context)->register_selected(mx, viewport[3]-My, nWidth, nHeight, true);
+	  glutPostRedisplay();
+	}
       }
       break;
     case GLUT_RIGHT_BUTTON:
