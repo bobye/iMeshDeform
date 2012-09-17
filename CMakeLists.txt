@@ -19,5 +19,7 @@ SET(CMAKE_CXX_FLAGS "-g -Wall")
 SET(LIBS ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${PETSC_LIBRARIES})
 
 
-ADD_SUBDIRECTORY(src/subspace lib)
+ADD_SUBDIRECTORY(src/subspace lib/subspace)
+ADD_SUBDIRECTORY(src/fsvd     lib/fsvd)
+ADD_SUBDIRECTORY(src/test     bin/test)
 ADD_SUBDIRECTORY(src bin)
