@@ -25,6 +25,10 @@ namespace subspace {
 #define LOCK_OBJECT_ROTATE    0x08
 #define LOCK_BACK_BUFFER_SELECT 0x10
 #define LOCK_MODE_SELECT      0x20
+#define LOCK_MODE_SPEC        0x40
+
+  std::string spec_info="";
+
 
   GLfloat CTM[16], transMat_buffer[16];
 
@@ -137,9 +141,56 @@ namespace subspace {
 
   }
 
+
+  void display_text() {
+    glColor4f(0.0, 1.0, 0.0, 0.75); // Green
+    std::string text2render;
+    if (current_state & LOCK_MODE_SPEC)
+      text2render =  spec_info;
+    else {
+      text2render = "iMeshDeform\t";
+      if (current_state & LOCK_MODE_SELECT)
+	text2render += "| Selection Mode\t";
+      else 
+	text2render += "| Normal Mode\t";
+    }
+    
+
+
+    glRasterPos2f( 10,10 );
+    for (std::string::iterator i=text2render.begin(); i!= text2render.end(); ++i) 
+      glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, (char ) *i );
+    
+  }
+
+  void display_action() {
+    glColor4f(1, 1, 1, 0.75);
+    if (current_state & LOCK_OBJECT_ROTATE) {
+      glBegin(GL_LINES);
+
+      if (object_rotate_switch) {
+      } else {
+	glVertex2f(origin_x, viewport[3] - origin_y);
+	glVertex2f(transform_x, viewport[3] - transform_y);
+      }
+      glEnd();
+    }
+    else if (current_state & LOCK_BACK_BUFFER_SELECT) {
+      glBegin(GL_LINE_LOOP);
+      glVertex2f(origin_x, viewport[3] - origin_y);
+      glVertex2f(origin_x, viewport[3] - transform_y);      
+      glVertex2f(transform_x, viewport[3] - transform_y);      
+      glVertex2f(transform_x, viewport[3] - origin_y);      
+      glEnd();
+    }
+    
+
+  }
+
   void Scene::display(){
 
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);//(NEW) setup our buffers
+
 
 
 
@@ -198,43 +249,25 @@ namespace subspace {
 
 
 
-
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
     glPushMatrix();
     glLoadIdentity();
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_LIGHTING);
-    glColor4f(1, 1, 1, 0.75);
-    if (current_state & LOCK_OBJECT_ROTATE) {
-      glBegin(GL_LINES);
 
-      if (object_rotate_switch) {
-      } else {
-	glVertex2f(2.*(origin_x - viewport[0])/viewport[2] -1, 2.*( - origin_y-viewport[1])/viewport[3] +1);
-	glVertex2f(2.*(transform_x - viewport[0])/viewport[2] -1 , 2.*(- transform_y - viewport[1])/viewport[3] +1);
-      }
-      glEnd();
-    }
-    else if (current_state & LOCK_BACK_BUFFER_SELECT) {
-      glBegin(GL_LINE_LOOP);
-      glVertex2f(2.*(origin_x - viewport[0])/viewport[2] -1, 2.*( - origin_y-viewport[1])/viewport[3] +1);
-      glVertex2f(2.*(origin_x - viewport[0])/viewport[2] -1, 2.*( - transform_y-viewport[1])/viewport[3] +1);
-      glVertex2f(2.*(transform_x - viewport[0])/viewport[2] -1 , 2.*(- transform_y - viewport[1])/viewport[3] +1);
-      glVertex2f(2.*(transform_x - viewport[0])/viewport[2] -1 , 2.*(- origin_y - viewport[1])/viewport[3] +1);
-      glEnd();
-    }
-    
+    gluOrtho2D(0.0, viewport[2], 0.0, viewport[3]);
+    display_action();
+    display_text();
 
     glEnable(GL_LIGHTING);
     glEnable(GL_DEPTH_TEST);    
+
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
 
-
-	
 
     glutSwapBuffers();
 
@@ -268,6 +301,7 @@ namespace subspace {
 
   void Scene::init(Object* obj) {
     context = obj; object = obj; 
+    vertsel = new VertSelect(obj);
     cursor = context->center;
     
     glClearColor(0, 0, 0, 0.0);
@@ -324,6 +358,11 @@ namespace subspace {
     glutMouseFunc(mouse);
     glutDisplayFunc(display);
 
+  }
+
+  void Scene::init(Subspace* ss) {
+    ss_solver = ss;
+    ss_solver->init(object->mesh);
   }
 
   void Scene::add_lights(){
@@ -460,103 +499,124 @@ namespace subspace {
       
       glutPostRedisplay();
     }
-    else if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
-      if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
-	GLfloat *transMat = currentScene->context->transMat;
-	transMat[12] = currentScene->cursor.x();
-	transMat[13] = currentScene->cursor.y();
-	transMat[14] = currentScene->cursor.z();
-	MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
-	glutPostRedisplay();
-      }else {
-	current_state |= LOCK_OBJECT_TRANSLATE;	
-	
-	glPushMatrix();
-	glMultMatrixf(currentScene->context->transMat);
-      
-	GLdouble modelview[16], projection[16];
-
-	glGetDoublev(GL_PROJECTION_MATRIX, projection);
-	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-	gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &origin_x, &origin_y, &origin_z);
-	glPopMatrix();
-
-	for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->context->transMat[i];
-      }
-    }
-    else if (key == 'r' && !(current_state & ~LOCK_OBJECT_ROTATE)) {
-      if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
-	GLfloat *transMat = currentScene->context->transMat;
-	MatxTranslate(transMat, transMat, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
-	for (int i=0; i < 12; ++i) transMat[i] = (i%5==0);
-	MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
-	glutPostRedisplay(); return;
-      }
-      
-      if (current_state & LOCK_OBJECT_ROTATE){
-	object_rotate_switch =!object_rotate_switch;
-	for (int i = 0; i < 16; ++i) currentScene->context->transMat[i] = transMat_buffer[i];
-	glutPostRedisplay();
-      } else {
-	for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->context->transMat[i];
-      }
-
-      if (object_rotate_switch) {
-	current_state |= LOCK_OBJECT_ROTATE;
-	glPushMatrix();
-	glMultMatrixf(transMat_buffer);
-	GLdouble modelview[16], projection[16];
-
-	d2_x = x; d2_y = y;
-
-	glGetDoublev(GL_PROJECTION_MATRIX, projection);
-	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-	glPopMatrix();
-	gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
 
 
-      } else {
-	current_state |= LOCK_OBJECT_ROTATE;
-	glPushMatrix();
-	glMultMatrixf(transMat_buffer);
-	GLdouble modelview[16], projection[16], t;
-
-	d2_x = x; d2_y = y;
-
-	glGetDoublev(GL_PROJECTION_MATRIX, projection);
-	glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-	gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
-	glPopMatrix();	
-	gluUnProject(origin_x, origin_y, 0, modelview, projection, viewport, &axis_x, &axis_y, &axis_z);
-	//rotation axis
-	axis_x -= currentScene->cursor.x(); axis_y -= currentScene->cursor.y(); axis_z-=currentScene->cursor.z();
-	t = std::sqrt(axis_x * axis_x + axis_y * axis_y + axis_z * axis_z);
-	axis_x /= t; axis_y /= t; axis_z /= t; //normalize	
-	origin_y = viewport[3] - origin_y;
-
-      }
-    }
-    else if (key == 9) {// TAB key, entering selection mode
+    if (key == 9) {// TAB key, switch between selection mode and normal mode
       if (current_state & LOCK_MODE_SELECT) {
 	current_state &= ~LOCK_MODE_SELECT;
-	wireOrNot = false;
-	currentScene->context->destroy();
-	delete currentScene->context;
+	wireOrNot = false;	
 	currentScene->context = currentScene->object;
 	glDisableClientState(GL_COLOR_ARRAY);
       } else {
 	current_state |= LOCK_MODE_SELECT;
 	wireOrNot = true;
-	currentScene->context = new VertSelect(currentScene->object);
+	currentScene->context = currentScene->vertsel;
 	glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_solid);
 	glEnableClientState(GL_COLOR_ARRAY);
       }
       glutPostRedisplay();
     }
-    else if (key == 'b' && (current_state & LOCK_MODE_SELECT)) {
-      current_state |= LOCK_BACK_BUFFER_SELECT;     
-    }
-    else if (key == 'a') {
+
+    if (!current_state) {//Normal mode
+      if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
+	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
+	  GLfloat *transMat = currentScene->context->transMat;
+	  transMat[12] = currentScene->cursor.x();
+	  transMat[13] = currentScene->cursor.y();
+	  transMat[14] = currentScene->cursor.z();
+	  MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
+	  glutPostRedisplay();
+	}else {
+	  current_state |= LOCK_OBJECT_TRANSLATE;	
+	
+	  glPushMatrix();
+	  glMultMatrixf(currentScene->context->transMat);
+      
+	  GLdouble modelview[16], projection[16];
+
+	  glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	  glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+	  gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &origin_x, &origin_y, &origin_z);
+	  glPopMatrix();
+
+	  for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->context->transMat[i];
+	}
+      }
+      else if (key == 'r' && !(current_state & ~LOCK_OBJECT_ROTATE)) {
+	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
+	  GLfloat *transMat = currentScene->context->transMat;
+	  MatxTranslate(transMat, transMat, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
+	  for (int i=0; i < 12; ++i) transMat[i] = (i%5==0);
+	  MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
+	  glutPostRedisplay(); return;
+	}
+      
+	if (current_state & LOCK_OBJECT_ROTATE){
+	  object_rotate_switch =!object_rotate_switch;
+	  for (int i = 0; i < 16; ++i) currentScene->context->transMat[i] = transMat_buffer[i];
+	  glutPostRedisplay();
+	} else {
+	  for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->context->transMat[i];
+	}
+
+	if (object_rotate_switch) {
+	  current_state |= LOCK_OBJECT_ROTATE;
+	  glPushMatrix();
+	  glMultMatrixf(transMat_buffer);
+	  GLdouble modelview[16], projection[16];
+
+	  d2_x = x; d2_y = y;
+
+	  glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	  glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+	  glPopMatrix();
+	  gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
+
+
+	} else {
+	  current_state |= LOCK_OBJECT_ROTATE;
+	  glPushMatrix();
+	  glMultMatrixf(transMat_buffer);
+	  GLdouble modelview[16], projection[16], t;
+
+	  d2_x = x; d2_y = y;
+
+	  glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	  glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+	  gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
+	  glPopMatrix();	
+	  gluUnProject(origin_x, origin_y, 0, modelview, projection, viewport, &axis_x, &axis_y, &axis_z);
+	  //rotation axis
+	  axis_x -= currentScene->cursor.x(); axis_y -= currentScene->cursor.y(); axis_z-=currentScene->cursor.z();
+	  t = std::sqrt(axis_x * axis_x + axis_y * axis_y + axis_z * axis_z);
+	  axis_x /= t; axis_y /= t; axis_z /= t; //normalize	
+	  origin_y = viewport[3] - origin_y;
+
+	}
+      }
+    } else if (current_state & LOCK_MODE_SELECT) {   
+      if (key == 'b') {
+	current_state |= LOCK_BACK_BUFFER_SELECT;     
+      }
+      else if (key == 'A') {
+	current_state |= LOCK_MODE_SPEC;
+	spec_info = "[r]: Add rigid transformer [h]: Add handler";
+	glutPostRedisplay();
+      }
+      else if (key == 'r' && (current_state & LOCK_MODE_SPEC)) {
+	current_state &= ~LOCK_MODE_SPEC;
+	spec_info = "";
+	// add rigid transformer
+	currentScene->ss_solver->add_rigid_transformer(((VertSelect*) currentScene->context)->selected);
+	glutPostRedisplay();
+      }
+      else if (key == 'h' && (current_state & LOCK_MODE_SPEC)) {
+	current_state &= ~LOCK_MODE_SPEC;
+	spec_info = "";
+	// add linear constraint handler
+	currentScene->ss_solver->add_linear_constraint_handler(((VertSelect*) currentScene->context)->selected);
+	glutPostRedisplay();
+      }
     }
   }
 

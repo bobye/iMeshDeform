@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "mesh.hh"
+#include "subspace.hh"
 #include <GL/glut.h>
 
 namespace subspace {
@@ -54,7 +55,10 @@ namespace subspace {
   class Scene {
   protected:
     Object *object;
+    VertSelect *vertsel;
     Geometry *context;//default set to object
+
+    Subspace *ss_solver;//subspace solver
     void get_window_world_radio();
     void add_lights();
   public:
@@ -73,6 +77,7 @@ namespace subspace {
     static void pmotion(int, int);
     static void mouse(int, int, int, int);
     void init(Object*);
+    void init(Subspace*);
     void view();
   };
 
