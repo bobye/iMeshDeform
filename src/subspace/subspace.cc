@@ -1,5 +1,5 @@
-//#include "petscvec.h"
-//#include "petscmat.h"
+#include "petscvec.h"
+#include "petscmat.h"
 
 #include "subspace/subspace.hh"
 
@@ -10,21 +10,21 @@ namespace subspace {
   std::vector<bool*> rigid_transformer;
 
   //proxies
-  //Mat  linear_proxy_handler;
+  Mat  linear_proxy_handler;
 
   //variational subspace solver
-  /*  
+
   Mat  VS_mat;//sparse matrix for LU
   Vec* VS_N;//solved variational subspace
   Vec* VS_U;
-  */
+
 
   Subspace::Subspace(int argc, char **argv) {
-    //PetscInitialize(&argc,&argv,(char *)0,PETSC_NULL);
+    PetscInitialize(&argc,&argv,(char *)0,PETSC_NULL);
   };
 
 
-  void Subspace::init(TriMesh * pm) {
+  void Subspace::init(trimesh::TriMesh * pm) {
     mesh = pm;
     is_vertex_rigid = new bool[mesh->vertices.size()];
   }
@@ -52,5 +52,8 @@ namespace subspace {
       delete [] rigid_transformer[i];
     for (unsigned int i=0; i<linear_constraint_handler.size(); ++i)
       delete [] linear_constraint_handler[i];
+    PetscFinalize();
   }
+
+  
 }

@@ -11,7 +11,7 @@ namespace subspace {
   class Geometry {
   public:
     // center point
-    point center;
+    trimesh::point center;
     // transformer
     GLfloat transMat[16];
     virtual void destroy();
@@ -21,11 +21,11 @@ namespace subspace {
   class Object : public Geometry {
   public:
     // mesh data
-    TriMesh *mesh;    
+    trimesh::TriMesh *mesh;    
     // bounding box
     GLfloat bbox[6], size;
     
-    Object(TriMesh*);
+    Object(trimesh::TriMesh*);
 
 
     // render!
@@ -39,7 +39,7 @@ namespace subspace {
   class VertSelect : public Geometry {
   public:
     Object  *object;
-    TriMesh *mesh;
+    trimesh::TriMesh *mesh;
     bool *selected;
 
     GLubyte *black;
@@ -63,7 +63,7 @@ namespace subspace {
     void add_lights();
   public:
     int width,height;
-    point cursor;
+    trimesh::point cursor;
     // transformer
     static Scene * currentScene;
     Scene(int , char**);

@@ -9,12 +9,12 @@ namespace subspace {
   
   class Subspace {
   protected:
-    TriMesh* mesh;    
+    trimesh::TriMesh* mesh;    
 
   public:
     Subspace(int, char**);
     ~Subspace();
-    void init(TriMesh *);
+    void init(trimesh::TriMesh *);
     
     void add_rigid_transformer(bool*);
     void add_linear_constraint_handler(bool*);

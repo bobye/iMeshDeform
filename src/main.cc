@@ -1,18 +1,20 @@
 #include "TriMesh.h"
 #include "subspace/gui.hh"
 
+using namespace trimesh;
+using namespace subspace;
 int main(int argc, char *argv[])
 {
   TriMesh *mesh = TriMesh::read(argv[1]);
   if (!mesh) exit(1);
   
-  subspace::Scene scene(argc, argv);
+  Scene scene(argc, argv);
 
-  subspace::Object object = subspace::Object(mesh);
+  Object object = Object(mesh);
   object.register_mesh();
   scene.init(&object);
 
-  subspace::Subspace ss_solver = subspace::Subspace(argc,argv);
+  Subspace ss_solver = Subspace(argc,argv);
   scene.init(&ss_solver);
 
   scene.view();

@@ -2,7 +2,7 @@
 #include <string.h>
 
 namespace subspace {
-  Object::Object(TriMesh *pmesh) : mesh(pmesh){
+  Object::Object(trimesh::TriMesh *pmesh) : mesh(pmesh){
 
     //compute bounding box
     mesh->need_tstrips();
@@ -24,34 +24,34 @@ namespace subspace {
     glVertexPointer(3, GL_FLOAT, sizeof(mesh->vertices[0]), &mesh->vertices[0][0]);    
   }
 
-void draw_tstrips(const TriMesh *themesh)
-{
-  static bool use_glArrayElement = false;
-  static bool tested_renderer = false;
-  if (!tested_renderer) {
-    use_glArrayElement = !!strstr(
-				       (const char *) glGetString(GL_RENDERER), "Intel");
-    tested_renderer = true;
-  }
+  void draw_tstrips(const trimesh::TriMesh *themesh)
+  {
+    static bool use_glArrayElement = false;
+    static bool tested_renderer = false;
+    if (!tested_renderer) {
+      use_glArrayElement = !!strstr(
+				    (const char *) glGetString(GL_RENDERER), "Intel");
+      tested_renderer = true;
+    }
 
-  const int *t = &themesh->tstrips[0];
-  const int *end = t + themesh->tstrips.size();
-  if (use_glArrayElement) {
-    while (likely(t < end)) {
-      glBegin(GL_TRIANGLE_STRIP);
-      int striplen = *t++;
-      for (int i = 0; i < striplen; i++)
-	glArrayElement(*t++);
-      glEnd();
-    }
-  } else {
-    while (likely(t < end)) {
-      int striplen = *t++;
-      glDrawElements(GL_TRIANGLE_STRIP, striplen, GL_UNSIGNED_INT, t);
-      t += striplen;
+    const int *t = &themesh->tstrips[0];
+    const int *end = t + themesh->tstrips.size();
+    if (use_glArrayElement) {
+      while (likely(t < end)) {
+	glBegin(GL_TRIANGLE_STRIP);
+	int striplen = *t++;
+	for (int i = 0; i < striplen; i++)
+	  glArrayElement(*t++);
+	glEnd();
+      }
+    } else {
+      while (likely(t < end)) {
+	int striplen = *t++;
+	glDrawElements(GL_TRIANGLE_STRIP, striplen, GL_UNSIGNED_INT, t);
+	t += striplen;
+      }
     }
   }
-}
 
 
   void Object::draw() {
