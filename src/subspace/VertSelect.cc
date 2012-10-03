@@ -1,22 +1,21 @@
 #include "subspace/gui.hh"
-#include "subspace/mesh.hh"
 
 namespace subspace {
   VertSelect::VertSelect(Object * obj) {
     object = obj; mesh= obj->mesh;
 
-    selected = new bool [mesh->vertex_num];
-    color_solid = new GLubyte [4*mesh->vertex_num];
-    color_wire  = new GLubyte [4*mesh->vertex_num];
-    for (int i=0; i < mesh->vertex_num; ++i) {
+    selected = new bool [mesh->vertices.size()];
+    color_solid = new GLubyte [4*mesh->vertices.size()];
+    color_wire  = new GLubyte [4*mesh->vertices.size()];
+    for (int i=0; i < mesh->vertices.size(); ++i) {
       selected[i] = false;
       color_solid[4*i] = 77; color_solid[4*i+1] = 128; color_solid[4*i+2] = 154; color_solid[4*i+3] = 192;
       color_wire[4*i] = color_wire[4*i+1] = color_wire[4*i+2] = color_wire[4*i+3] = 0;
     }
     for (int i=0; i< 16; ++i) transMat[i] = (i%5 ==0);
 
-    unsigned int *iIndex = new unsigned int [mesh->vertex_num], vn = mesh->vertex_num,
-      *iBlack = new unsigned int [mesh->vertex_num];    
+    unsigned int *iIndex = new unsigned int [mesh->vertices.size()], vn = mesh->vertices.size(),
+      *iBlack = new unsigned int [mesh->vertices.size()];    
     for (unsigned int i =0; i< vn; ++i) {iIndex[i] = i+1; iBlack[i] = 0;}
     index = (GLubyte *) &iIndex[0];
     black = (GLubyte *) &iBlack[0];
@@ -56,7 +55,7 @@ namespace subspace {
 	  }
       if (toselect) 
 	{
-	  for (int i=0; i< mesh->vertex_num; ++i) selected[i] = false;
+	  for (int i=0; i< mesh->vertices.size(); ++i) selected[i] = false;
 	  if (minindex>0) selected[minindex-1] = true;
 	}
       else if (minindex>0) selected[minindex-1] = !selected[minindex-1];//toggle
@@ -67,7 +66,7 @@ namespace subspace {
 
     delete [] pRGBA;
 
-    for (int i=0; i < mesh->vertex_num; ++i) 
+    for (int i=0; i < mesh->vertices.size(); ++i) 
       if (selected[i]){
 	color_solid[4*i] = 126; color_solid[4*i+1] = 123; color_solid[4*i+2] = 57; color_solid[4*i+3] = 192;	
 	color_wire[4*i] = 255; color_wire[4*i+1] = 118; color_wire[4*i+2] = 0; color_wire[4*i+3] = 192;

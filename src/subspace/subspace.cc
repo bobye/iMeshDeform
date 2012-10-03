@@ -1,5 +1,5 @@
-#include "petscvec.h"
-#include "petscmat.h"
+//#include "petscvec.h"
+//#include "petscmat.h"
 
 #include "subspace/subspace.hh"
 
@@ -10,26 +10,27 @@ namespace subspace {
   std::vector<bool*> rigid_transformer;
 
   //proxies
-  Mat  linear_proxy_handler;
+  //Mat  linear_proxy_handler;
 
   //variational subspace solver
+  /*  
   Mat  VS_mat;//sparse matrix for LU
   Vec* VS_N;//solved variational subspace
   Vec* VS_U;
-
+  */
 
   Subspace::Subspace(int argc, char **argv) {
-    PetscInitialize(&argc,&argv,(char *)0,PETSC_NULL);
+    //PetscInitialize(&argc,&argv,(char *)0,PETSC_NULL);
   };
 
 
   void Subspace::init(TriMesh * pm) {
     mesh = pm;
-    is_vertex_rigid = new bool[mesh->vertex_num];
+    is_vertex_rigid = new bool[mesh->vertices.size()];
   }
 
   void Subspace::add_rigid_transformer(bool * selected) {
-    int vn = mesh->vertex_num, new_rigid_count=0, rt_count = rigid_transformer.size();
+    int vn = mesh->vertices.size(), new_rigid_count=0, rt_count = rigid_transformer.size();
     rigid_transformer.push_back(new bool[vn]); 
     for (int i=0; i<vn; ++i) 
       if (selected[i] && !is_vertex_rigid[i]) 
@@ -38,7 +39,7 @@ namespace subspace {
   }
 
   void Subspace::add_linear_constraint_handler(bool * selected) {
-    int vn = mesh->vertex_num, vertex_count=0, rt_count = linear_constraint_handler.size();
+    int vn = mesh->vertices.size(), vertex_count=0, rt_count = linear_constraint_handler.size();
     linear_constraint_handler.push_back(new bool[vn]); 
     for (int i=0; i<vn; ++i)       
       vertex_count += (linear_constraint_handler[rt_count][i] = selected[i]);

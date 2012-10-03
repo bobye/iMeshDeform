@@ -1,37 +1,18 @@
 #include "subspace/gui.hh"
-#include "subspace/mesh.hh"
+#include <string.h>
 
 namespace subspace {
   Object::Object(TriMesh *pmesh) : mesh(pmesh){
 
     //compute bounding box
-    for (int i=0;i < mesh->vertex_num; ++i) {
-      if (i==0) {
-	bbox[0] = bbox[1] = mesh->vertex_array[0];
-	bbox[2] = bbox[3] = mesh->vertex_array[1];
-	bbox[4] = bbox[5] = mesh->vertex_array[2];	
-      }
-      else {
-	if (bbox[0] > mesh->vertex_array[3*i])      bbox[0]=mesh->vertex_array[3*i];
-	else if (bbox[1] < mesh->vertex_array[3*i]) bbox[1]=mesh->vertex_array[3*i];
-	if (bbox[2] > mesh->vertex_array[3*i+1])      bbox[2]=mesh->vertex_array[3*i+1];
-	else if (bbox[3] < mesh->vertex_array[3*i+1]) bbox[3]=mesh->vertex_array[3*i+1];
-	if (bbox[4] > mesh->vertex_array[3*i+2])      bbox[4]=mesh->vertex_array[3*i+2];
-	else if (bbox[5] < mesh->vertex_array[3*i+2]) bbox[5]=mesh->vertex_array[3*i+2];
-      }
-    }
-
-    size = bbox[1] - bbox[0];
-    if (size < bbox[3] -bbox[2]) size = bbox[3] - bbox[2];
-    if (size < bbox[5]- bbox[4]) size = bbox[5] - bbox[4];
-
-    center = Point((bbox[0]+bbox[1])/2,(bbox[2]+bbox[3])/2,(bbox[4]+bbox[5])/2);
+    mesh->need_tstrips();
+    mesh->need_normals();
+    mesh->need_bsphere();
+    size = 2*mesh->bsphere.r;
+    center = mesh->bsphere.center;
 
     for (int i=0; i< 16; ++i) transMat[i] = (i%5 ==0);
 
-
-    //    for (int i=0; i<16;++i) std::cout << (int) index[i] << " ";
-    //    std::cout<< std::endl;
   }
 
 
@@ -39,9 +20,39 @@ namespace subspace {
     glEnableClientState(GL_NORMAL_ARRAY);
     glEnableClientState(GL_VERTEX_ARRAY);
     //load geometric information 
-    glNormalPointer(GL_DOUBLE, 0, mesh->normal_array);
-    glVertexPointer(3, GL_DOUBLE, 0, mesh->vertex_array);    
+    glNormalPointer(GL_FLOAT, sizeof(mesh->normals[0]), &mesh->normals[0][0]);
+    glVertexPointer(3, GL_FLOAT, sizeof(mesh->vertices[0]), &mesh->vertices[0][0]);    
   }
+
+void draw_tstrips(const TriMesh *themesh)
+{
+  static bool use_glArrayElement = false;
+  static bool tested_renderer = false;
+  if (!tested_renderer) {
+    use_glArrayElement = !!strstr(
+				       (const char *) glGetString(GL_RENDERER), "Intel");
+    tested_renderer = true;
+  }
+
+  const int *t = &themesh->tstrips[0];
+  const int *end = t + themesh->tstrips.size();
+  if (use_glArrayElement) {
+    while (likely(t < end)) {
+      glBegin(GL_TRIANGLE_STRIP);
+      int striplen = *t++;
+      for (int i = 0; i < striplen; i++)
+	glArrayElement(*t++);
+      glEnd();
+    }
+  } else {
+    while (likely(t < end)) {
+      int striplen = *t++;
+      glDrawElements(GL_TRIANGLE_STRIP, striplen, GL_UNSIGNED_INT, t);
+      t += striplen;
+    }
+  }
+}
+
 
   void Object::draw() {
 
@@ -58,8 +69,8 @@ namespace subspace {
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   
     glMultMatrixf(transMat);	  
-    glDrawElements(GL_TRIANGLES, 3*mesh->facet_num, GL_UNSIGNED_INT, mesh->facet_array);
-
+    //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, mesh->tstrips);
+    draw_tstrips(mesh);
     //glDisable(GL_BLEND);
     //glDepthMask(GL_TRUE);
     glDisable(GL_COLOR_MATERIAL);
@@ -68,7 +79,8 @@ namespace subspace {
   void Object::back_draw(){
     glDisable(GL_LIGHTING);
     glMultMatrixf(transMat);	  
-    glDrawElements(GL_TRIANGLES, 3*mesh->facet_num, GL_UNSIGNED_INT, mesh->facet_array);
+    //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, mesh->tstrips);
+    draw_tstrips(mesh);
     glEnable(GL_LIGHTING);
   }
   

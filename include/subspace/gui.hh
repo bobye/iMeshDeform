@@ -2,7 +2,7 @@
 #define _GUI_H_
 
 #include <vector>
-#include "mesh.hh"
+#include "TriMesh.h"
 #include "subspace.hh"
 #include <GL/glut.h>
 
@@ -11,7 +11,7 @@ namespace subspace {
   class Geometry {
   public:
     // center point
-    Point center;
+    point center;
     // transformer
     GLfloat transMat[16];
     virtual void destroy();
@@ -63,7 +63,7 @@ namespace subspace {
     void add_lights();
   public:
     int width,height;
-    Point cursor;
+    point cursor;
     // transformer
     static Scene * currentScene;
     Scene(int , char**);

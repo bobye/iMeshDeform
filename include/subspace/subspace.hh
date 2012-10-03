@@ -3,7 +3,7 @@
 
 
 #include <vector>
-#include "mesh.hh"
+#include "TriMesh.h"
 
 namespace subspace {
   

@@ -1,5 +1,5 @@
 #include "subspace/gui.hh"
-#include "subspace/mesh.hh"
+#define SS_PI                       (3.1415926535898)
 
 namespace subspace {
 
@@ -8,17 +8,17 @@ namespace subspace {
 
   Scene* Scene::currentScene;
 
-  GLfloat scale = 1., win_world_radio;
-  GLdouble origin_x, origin_y, origin_z, depth, d2_x, d2_y,
+  static GLfloat scale = 1., win_world_radio;
+  static GLdouble origin_x, origin_y, origin_z, depth, d2_x, d2_y,
     axis_x, axis_y, axis_z;
-  int transform_x=0, transform_y=0, viewport[4];
-  GLfloat ground_wire = 30;
+  static int transform_x=0, transform_y=0, viewport[4];
+  static GLfloat ground_wire = 30;
 
-  bool object_rotate_switch = false,
+  static bool object_rotate_switch = false,
     orthOrNot=false,
     wireOrNot=false;
 
-  char current_state = 0x00000000;
+  char current_state = 0x00;
 #define LOCK_VIEW_TRANSLATE   0x01
 #define LOCK_VIEW_ROTATE      0x02
 #define LOCK_OBJECT_TRANSLATE 0x04
@@ -30,22 +30,22 @@ namespace subspace {
   std::string spec_info="";
 
 
-  GLfloat CTM[16], transMat_buffer[16];
+  static GLfloat CTM[16], transMat_buffer[16];
 
-  GLfloat light_ambient[] = { .4, .4, .4, 1.0 };
-  GLfloat light_diffuse[] = { .8, .8, .8, 1.0 };
-  GLfloat light_specular[] = { .5, .5, .5, 1.0 };
+  const GLfloat light_ambient[] = { .4, .4, .4, 1.0 };
+  const GLfloat light_diffuse[] = { .8, .8, .8, 1.0 };
+  const GLfloat light_specular[] = { .5, .5, .5, 1.0 };
 
 
 
-  GLfloat light_position0[] = { 1.0, 1.0, 1.0, 0.0 };
-  GLfloat light_position1[] = { -1.0, -1.0, -1.0, .0};
+  const GLfloat light_position0[] = { 1.0, 1.0, 1.0, 0.0 };
+  const GLfloat light_position1[] = { -1.0, -1.0, -1.0, .0};
 
-  GLfloat mat_ambient[] = { .5, .5, .5, 1.0 };
-  GLfloat mat_emission[] = { 0, 0, 0, 0.6 };
-  GLfloat mat_diffuse[] = { .5, .5, .5, .6 };
-  GLfloat mat_specular[] = { .1, .1, .1, .6 };
-  GLfloat mat_shininess[] = {100};
+  const GLfloat mat_ambient[] = { .5, .5, .5, 1.0 };
+  const GLfloat mat_emission[] = { 0, 0, 0, 0.6 };
+  const GLfloat mat_diffuse[] = { .5, .5, .5, .6 };
+  const GLfloat mat_specular[] = { .1, .1, .1, .6 };
+  const GLfloat mat_shininess[] = {100};
 
   const GLfloat perfect_factor = 1.414;
 
@@ -125,7 +125,7 @@ namespace subspace {
     //glHint(GL_LINE_SMOOTH_HINT, GL_DONT_CARE);
     //glHint(GL_POLYGON_SMOOTH_HINT, GL_DONT_CARE);
     //
-    glEnable(GL_CULL_FACE);
+    //glEnable(GL_CULL_FACE);
     //glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
     
     //glutIdleFunc(idle);
@@ -212,7 +212,7 @@ namespace subspace {
 
     if (current_state & LOCK_MODE_SELECT) {
       glPushMatrix();//push i-th matrix
-      glPolygonMode(GL_FRONT, GL_FILL);
+      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       currentScene->object->draw();
       glPopMatrix();//pop i-th matrix
       glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_wire);
@@ -224,9 +224,9 @@ namespace subspace {
     //glCallList(currentScene->object->LIST_NAME);       
     //    glMultMatrixf(currentScene->object->transMat);
     if (wireOrNot) 
-      glPolygonMode(GL_FRONT, GL_LINE);
+      glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     else
-      glPolygonMode(GL_FRONT, GL_FILL);
+      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     //    if (current_state & LOCK_MODE_SELECT) 
     //      currentScene->context->draw();
@@ -240,7 +240,7 @@ namespace subspace {
     glPushMatrix();
     glEnable(GL_COLOR_MATERIAL);
     glColor4f(.5, .5, 0., 0.75);
-    glTranslatef(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
+    glTranslatef(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
     glutSolidSphere(5*win_world_radio , 20, 20);
     glPopMatrix();    
     glEnable(GL_DEPTH_TEST);
@@ -284,7 +284,7 @@ namespace subspace {
     glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
     glGetIntegerv( GL_VIEWPORT, viewport );
 
-    gluProject( cursor.x(), cursor.y(), cursor.z(), modelview, projection, viewport, &corner1[0], &corner1[1], &depth);
+    gluProject( cursor[0], cursor[1], cursor[2], modelview, projection, viewport, &corner1[0], &corner1[1], &depth);
 
     gluUnProject( viewport[0], viewport[1], depth, modelview, 
 		  projection, viewport, &corner1[0], &corner1[1], &corner1[2]);
@@ -307,32 +307,9 @@ namespace subspace {
     glClearColor(0, 0, 0, 0.0);
     glClearDepth(1.0);
 
-    //GLfloat center_x = (object->bbox[0] + object->bbox[1]) /2.;
-    //GLfloat center_y = (object->bbox[2] + object->bbox[3]) /2.;
-    //GLfloat center_z = (object->bbox[4] + object->bbox[5]) /2.;
-    //GLfloat length_z = (object->bbox[5] - object->bbox[4]) /2.;
-    
-
-    //std::cout << center_x << " " << center_y << " " << center_z << " " << length_z << std::endl;
 
     glViewport( 0, 0, width, height );
 
-    /*
-    glMatrixMode(GL_PROJECTION);
-
-    glLoadIdentity();
-    gluPerspective(30, (float)width/(float)height, 5*object->size, 20*object->size);
-    glTranslated(-center_x, -center_y, -center_z - 10 * object->size );
-
-    glMatrixMode(GL_MODELVIEW);
-    */
-    /*    glLoadIdentity();
-
-    gluLookAt(center_x, center_y, center_z - 20*length_z,
-	      center_x, center_y, center_z,
-	      0,1,0);
-    */
-    //glOrtho(-1,1,-1,1,-10,10);
 
 
     scale =1.;
@@ -346,9 +323,8 @@ namespace subspace {
     object->draw();
     glEndList();
     */
-    get_window_world_radio(); keyboard('.',0,0);
+    reshape(width, height); keyboard('.',0,0);
     ground_wire = 5 * ( (int) (100000 * currentScene->height * win_world_radio) / 50) * 0.00001;    
-
 
     glutReshapeFunc(reshape);
     glutKeyboardFunc(keyboard);
@@ -452,7 +428,6 @@ namespace subspace {
     //keyboard('.',0,0);
     //gluLookAt( -50 * length_z , 70 * length_z ,  70 * length_z, 0, 0,  - 100 * length_z , 0, 1, 0);
     currentScene->get_window_world_radio();
-
   }
 
 
@@ -487,9 +462,9 @@ namespace subspace {
     else if (key == '.') { // focus to object view
       glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
       GLdouble cx,cy,cz;
-      cx = currentScene->cursor.x(); 
-      cy = currentScene->cursor.y();
-      cz = currentScene->cursor.z();
+      cx = currentScene->cursor[0]; 
+      cy = currentScene->cursor[1];
+      cz = currentScene->cursor[2];
       MatxVec(currentScene->context->transMat, cx, cy, cz);
       CTM[12] = - cx * CTM[0] - cy * CTM[4] - cz * CTM[8];
       CTM[13] = - cx * CTM[1] - cy * CTM[5] - cz * CTM[9];
@@ -517,14 +492,14 @@ namespace subspace {
       glutPostRedisplay();
     }
 
-    if (!current_state) {//Normal mode
+    if (!(current_state & 0xf0)) {//Normal mode      
       if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
 	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
 	  GLfloat *transMat = currentScene->context->transMat;
-	  transMat[12] = currentScene->cursor.x();
-	  transMat[13] = currentScene->cursor.y();
-	  transMat[14] = currentScene->cursor.z();
-	  MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
+	  transMat[12] = currentScene->cursor[0];
+	  transMat[13] = currentScene->cursor[1];
+	  transMat[14] = currentScene->cursor[2];
+	  MatxTranslate(transMat, transMat, -currentScene->cursor[0], -currentScene->cursor[1], -currentScene->cursor[2]);
 	  glutPostRedisplay();
 	}else {
 	  current_state |= LOCK_OBJECT_TRANSLATE;	
@@ -545,9 +520,9 @@ namespace subspace {
       else if (key == 'r' && !(current_state & ~LOCK_OBJECT_ROTATE)) {
 	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
 	  GLfloat *transMat = currentScene->context->transMat;
-	  MatxTranslate(transMat, transMat, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
+	  MatxTranslate(transMat, transMat, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
 	  for (int i=0; i < 12; ++i) transMat[i] = (i%5==0);
-	  MatxTranslate(transMat, transMat, -currentScene->cursor.x(), -currentScene->cursor.y(), -currentScene->cursor.z());
+	  MatxTranslate(transMat, transMat, -currentScene->cursor[0], -currentScene->cursor[1], -currentScene->cursor[2]);
 	  glutPostRedisplay(); return;
 	}
       
@@ -557,10 +532,10 @@ namespace subspace {
 	  glutPostRedisplay();
 	} else {
 	  for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->context->transMat[i];
+	  current_state |= LOCK_OBJECT_ROTATE;
 	}
 
 	if (object_rotate_switch) {
-	  current_state |= LOCK_OBJECT_ROTATE;
 	  glPushMatrix();
 	  glMultMatrixf(transMat_buffer);
 	  GLdouble modelview[16], projection[16];
@@ -570,11 +545,10 @@ namespace subspace {
 	  glGetDoublev(GL_PROJECTION_MATRIX, projection);
 	  glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
 	  glPopMatrix();
-	  gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
+	  gluProject(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2], modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
 
 
 	} else {
-	  current_state |= LOCK_OBJECT_ROTATE;
 	  glPushMatrix();
 	  glMultMatrixf(transMat_buffer);
 	  GLdouble modelview[16], projection[16], t;
@@ -583,11 +557,11 @@ namespace subspace {
 
 	  glGetDoublev(GL_PROJECTION_MATRIX, projection);
 	  glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-	  gluProject(currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z(), modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
+	  gluProject(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2], modelview, projection, viewport, &origin_x, &origin_y, &origin_z); 
 	  glPopMatrix();	
 	  gluUnProject(origin_x, origin_y, 0, modelview, projection, viewport, &axis_x, &axis_y, &axis_z);
 	  //rotation axis
-	  axis_x -= currentScene->cursor.x(); axis_y -= currentScene->cursor.y(); axis_z-=currentScene->cursor.z();
+	  axis_x -= currentScene->cursor[0]; axis_y -= currentScene->cursor[1]; axis_z-=currentScene->cursor[2];
 	  t = std::sqrt(axis_x * axis_x + axis_y * axis_y + axis_z * axis_z);
 	  axis_x /= t; axis_y /= t; axis_z /= t; //normalize	
 	  origin_y = viewport[3] - origin_y;
@@ -713,16 +687,16 @@ namespace subspace {
 	glPopMatrix();
 
 	gluUnProject(origin_x + (y-d2_y), origin_y + (x-d2_x), origin_z, modelview, projection, viewport,  &axis_x, &axis_y, &axis_z);
-	axis_x -= currentScene->cursor.x();
-	axis_y -= currentScene->cursor.y();
-	axis_z -= currentScene->cursor.z();
+	axis_x -= currentScene->cursor[0];
+	axis_y -= currentScene->cursor[1];
+	axis_z -= currentScene->cursor[2];
 	t = std::sqrt(axis_x * axis_x + axis_y * axis_y + axis_z * axis_z);
 	axis_x /= t; axis_y /= t; axis_z /= t; //normalize	
 
 	t = 2*SS_PI * std::sqrt(((x-d2_x)*(x-d2_x) + (y-d2_y)*(y-d2_y))/(viewport[2]*viewport[2]+viewport[3]*viewport[3])) ;
 	GLdouble sin,cos;
 	sin = std::sin(t); cos = std::cos(t);
-	MatxRotate(currentScene->context->transMat, transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
+	MatxRotate(currentScene->context->transMat, transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
 
       } else {
 	GLdouble sin, cos; 
@@ -738,7 +712,7 @@ namespace subspace {
       
 	sin = v1_y * v2_x - v1_x * v2_y;
 	cos = (1+1-(v1*v1+v2*v2))/2;
-	MatxRotate(currentScene->context->transMat, transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor.x(), currentScene->cursor.y(), currentScene->cursor.z());
+	MatxRotate(currentScene->context->transMat, transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
 
       }
       glutPostRedisplay();
