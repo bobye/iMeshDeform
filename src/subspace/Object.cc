@@ -69,7 +69,7 @@ namespace subspace {
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   
     glMultMatrixf(transMat);	  
-    //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, mesh->tstrips);
+    //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
     draw_tstrips(mesh);
     //glDisable(GL_BLEND);
     //glDepthMask(GL_TRUE);
@@ -79,7 +79,7 @@ namespace subspace {
   void Object::back_draw(){
     glDisable(GL_LIGHTING);
     glMultMatrixf(transMat);	  
-    //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, mesh->tstrips);
+    //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
     draw_tstrips(mesh);
     glEnable(GL_LIGHTING);
   }

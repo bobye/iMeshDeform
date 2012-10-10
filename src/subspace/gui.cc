@@ -299,7 +299,7 @@ namespace subspace {
     win_world_radio =std::sqrt((vect_world[0] * vect_world[0] + vect_world[1] * vect_world[1] + vect_world[2] * vect_world[2])  / (width * width + height * height));
   }
 
-  void Scene::init(Object* obj) {
+  void Scene::bind(Object* obj) {
     context = obj; object = obj; 
     vertsel = new VertSelect(obj);
     cursor = context->center;
@@ -336,9 +336,9 @@ namespace subspace {
 
   }
 
-  void Scene::init(Subspace* ss) {
+  void Scene::bind(Subspace* ss) {
     ss_solver = ss;
-    ss_solver->init(object->mesh);
+    //    ss_solver->init(object->mesh);
   }
 
   void Scene::add_lights(){

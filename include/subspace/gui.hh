@@ -76,8 +76,8 @@ namespace subspace {
     static void motion(int, int);
     static void pmotion(int, int);
     static void mouse(int, int, int, int);
-    void init(Object*);
-    void init(Subspace*);
+    void bind(Object*);
+    void bind(Subspace*);
     void view();
   };
 

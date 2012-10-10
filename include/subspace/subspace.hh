@@ -11,6 +11,8 @@ namespace subspace {
   protected:
     trimesh::TriMesh* mesh;    
 
+    void assembly();
+
   public:
     Subspace(int, char**);
     ~Subspace();
@@ -19,7 +21,16 @@ namespace subspace {
     void add_rigid_transformer(bool*);
     void add_linear_constraint_handler(bool*);
 
-    
+    // vg: vertices group
+    void load_linear_proxies_vg(std::vector<int> &);
+
+    void load_rotational_proxies(std::vector<int> &);
+
+    void solve();
+
+
+    // online solve and update vertices
+    void update(std::vector<double> );
   };
 
 }
