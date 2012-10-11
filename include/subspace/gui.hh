@@ -37,9 +37,13 @@ namespace subspace {
 
 
   class VertSelect : public Geometry {
+  protected:
+    bool *buffer_selected;
+    bool buffered;
+    void update_color();
   public:
     Object  *object;
-    trimesh::TriMesh *mesh;
+    int vn;//    trimesh::TriMesh *mesh;
     bool *selected;
 
     GLubyte *black;
@@ -48,14 +52,41 @@ namespace subspace {
 
     VertSelect(Object*);
     void register_selected(int,int,int,int,bool, bool onlyone=false);
+    void toggle_selected();
     void destroy();
   };
 
+  class HandlerSelect : public Geometry {
+  protected:
+    std::vector< std::vector<float> > constraints; 
+    std::vector< trimesh::point > constraint_points;
+    /*
+    std::vector< std::vector<bool> > rigids;
+    std::vector< float[12] > rigid_transforms; 
+    std::vector< bool > is_vertex_rigid;
+    */
+
+  public:    
+    int vn;
+    HandlerSelect(Object*);
+    Object  *object;
+
+    void add_rigid(bool*);
+    void add_constraint(bool*);
+
+    GLubyte *index;
+    std::vector< bool > selected;
+    bool register_selected(int, int, bool);
+    void delete_selected();
+    void draw(double);
+    void destroy();
+  };
 
   class Scene {
   protected:
     Object *object;
     VertSelect *vertsel;
+    HandlerSelect *handsel;
     Geometry *context;//default set to object
 
     Subspace *ss_solver;//subspace solver

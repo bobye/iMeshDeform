@@ -6,7 +6,6 @@ namespace subspace {
 
     //compute bounding box
     mesh->need_tstrips();
-    mesh->need_normals();
     mesh->need_bsphere();
     size = 2*mesh->bsphere.r;
     center = mesh->bsphere.center;
@@ -17,9 +16,8 @@ namespace subspace {
 
 
   void Object::register_mesh() {
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glEnableClientState(GL_VERTEX_ARRAY);
     //load geometric information 
+    mesh->need_normals();
     glNormalPointer(GL_FLOAT, sizeof(mesh->normals[0]), &mesh->normals[0][0]);
     glVertexPointer(3, GL_FLOAT, sizeof(mesh->vertices[0]), &mesh->vertices[0][0]);    
   }

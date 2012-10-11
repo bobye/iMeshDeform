@@ -7,11 +7,6 @@
 #include "assert.h"
 namespace subspace {
 
-  static std::vector<bool*> linear_constraint_handler;  
-  static std::vector<bool*> rigid_transformer;
-  static std::vector<bool> is_vertex_rigid;
-
-
   static int vn;
 
   static int ln, rn;
@@ -27,6 +22,8 @@ namespace subspace {
   static Vec* VS_L, *SL;//solved variational subspace
   static Vec* VS_R, *SR;//row major index for each rotation matrix
 
+  static double *SL_V, *SR_V; // for mesh reconstruction
+  static double *LVS, *MVS; //reduced model
 
   clock_t start, end;
   void clock_start(std::string description) {
@@ -52,26 +49,9 @@ namespace subspace {
     mesh->need_adjacentfaces();
 
     vn = mesh->vertices.size();
-    is_vertex_rigid.resize(vn);
     rotational_proxies.resize(vn);
   }
 
-  void Subspace::add_rigid_transformer(bool * selected) {
-    int new_rigid_count=0, rt_count = rigid_transformer.size();
-    rigid_transformer.push_back(new bool[vn]); 
-    for (int i=0; i<vn; ++i) 
-      new_rigid_count += (is_vertex_rigid[i] = rigid_transformer[rt_count][i] = (selected[i] && !is_vertex_rigid[i]));
-
-    std::cout << "Add rigid transformer (#vert " << new_rigid_count << ")" << std::endl;
-  }
-
-  void Subspace::add_linear_constraint_handler(bool * selected) {
-    int vertex_count=0, rt_count = linear_constraint_handler.size();
-    linear_constraint_handler.push_back(new bool[vn]); 
-    for (int i=0; i<vn; ++i)       
-      vertex_count += (linear_constraint_handler[rt_count][i] = selected[i]);
-    std::cout << "Add linear constraint handler (#vert " << vertex_count << ")" << std::endl;
-  }
 
 
   void Subspace::load_linear_proxies_vg(std::vector<int> &group_ids) {
@@ -135,28 +115,28 @@ namespace subspace {
 
     PetscScalar vs[4];
     for (int i=0; i<3; ++i) {
-      vs[0] = 2*v[i]; vs[1] = -2*v[i];
+      vs[0] = v[i]; vs[1] = -v[i];
       VecSetValues(VS_R[9*rotational_proxies[k]+i], 2, idx, vs, ADD_VALUES);
     }
     for (int i=0; i<3; ++i) {
-      vs[0] = 2*v[i]; vs[1] = -2*v[i];
+      vs[0] = v[i]; vs[1] = -v[i];
       VecSetValues(VS_R[9*rotational_proxies[k]+i+3], 2, idy, vs, ADD_VALUES);
     }
     for (int i=0; i<3; ++i) {
-      vs[0] = 2*v[i]; vs[1] = -2*v[i];
+      vs[0] = v[i]; vs[1] = -v[i];
       VecSetValues(VS_R[9*rotational_proxies[k]+i+6], 2, idz, vs, ADD_VALUES);
     }
 
     for (int i=0; i<3; ++i) {
-      vs[0] = -2*v[i]*v[0]; vs[1] = 0; vs[2] = -2*v[i]*v[2]; vs[3]=2*v[i]*v[1];
+      vs[0] = -v[i]*v[0]; vs[1] = 0; vs[2] = -v[i]*v[2]; vs[3]=v[i]*v[1];
       VecSetValues(VS_R[9*rotational_proxies[k]+i], 4, idq, vs, ADD_VALUES);
     }
     for (int i=0; i<3; ++i) {
-      vs[0] = -2*v[i]*v[1]; vs[1] = 2*v[i]*v[2]; vs[2] = 0; vs[3]=-2*v[i]*v[0];
+      vs[0] = -v[i]*v[1]; vs[1] = v[i]*v[2]; vs[2] = 0; vs[3]=-v[i]*v[0];
       VecSetValues(VS_R[9*rotational_proxies[k]+i+3], 4, idq, vs, ADD_VALUES);
     }
     for (int i=0; i<3; ++i) {
-      vs[0] = -2*v[i]*v[2]; vs[1] = -2*v[i]*v[1]; vs[2] = 2*v[i]*v[0]; vs[3]=0;
+      vs[0] = -v[i]*v[2]; vs[1] = -v[i]*v[1]; vs[2] = v[i]*v[0]; vs[3]=0;
       VecSetValues(VS_R[9*rotational_proxies[k]+i+6], 4, idq, vs, ADD_VALUES);
     }
     return ierr;   
@@ -229,6 +209,8 @@ namespace subspace {
     }
   }
 
+
+
   void Subspace::solve() {
     clock_start("Solving reduced model");
     assembly();
@@ -247,23 +229,65 @@ namespace subspace {
     for (int i=0; i<3*ln; ++i) KSPSolve(ksp, VS_L[i], SL[i]); 
     for (int i=0; i<9*rn; ++i) KSPSolve(ksp, VS_R[i], SR[i]); 
 
-
     MatDestroy(&L);
     KSPDestroy(&ksp);
+
+    SL_V = new double [3*vn*3*ln]; SR_V = new double [3*vn*9*rn];
+    PetscInt *indices = new PetscInt[3*vn];
+    for (int i=0; i<3*vn; ++i) indices[i] = i;
+    for (int i=0; i<3*ln; ++i)
+      VecGetValues(SL[i], 3*vn, indices, &SL_V[3*vn*i]);
+    for (int i=0; i<9*rn; ++i)
+      VecGetValues(SR[i], 3*vn, indices, &SR_V[3*vn*i]);
+    delete [] indices;
+
+    LVS = new double [3*ln*3*ln]; MVS = new double [3*ln*9*rn];
+
+    indices = new PetscInt[3*ln];
+    PetscScalar *zeros = new PetscScalar[3*ln]; std::fill(zeros, zeros + 3*ln, 0.);
+    for (int i=0; i<3*ln; ++i) indices[i] = 7*vn + i;
+    for (int i=0; i<3*ln; ++i) {
+      VecSetValues(SL[i], 3*ln, indices, zeros, INSERT_VALUES);
+      VecAssemblyBegin(SL[i]);
+      VecAssemblyEnd(SL[i]);
+    }
+    for (int i=0; i<9*rn; ++i) {
+      VecSetValues(SR[i], 3*ln, indices, zeros, INSERT_VALUES);
+      VecAssemblyBegin(SR[i]);
+      VecAssemblyEnd(SR[i]);
+    }
+
+    for (int i=0; i<3*ln; ++i) {
+      Vec tmp; VecDuplicate(SL[i], &tmp);
+      MatMult(VS, SL[i], tmp);
+      for (int j=i; j<3*ln; ++j) {
+	VecDot(SL[j], tmp, &LVS[3*ln*j+i]);
+	LVS[3*ln*i+j] = LVS[3*ln*j+i];
+      }
+      for (int j=0; j<9*rn; ++j) {
+	VecDot(SR[j], tmp, &MVS[3*ln*j+i]);
+	PetscScalar toadd;
+	VecDot(SL[i], VS_R[j], &toadd);
+	MVS[3*ln*j+i] += toadd;
+      }
+      VecDestroy(&tmp);
+    }
+
     clock_end();
   }
 
-  Subspace::~Subspace() {    
-    for (unsigned int i=0; i<rigid_transformer.size(); ++i)
-      delete [] rigid_transformer[i];
-    for (unsigned int i=0; i<linear_constraint_handler.size(); ++i)
-      delete [] linear_constraint_handler[i];
-    
+  Subspace::~Subspace() {        
     delete [] linear_proxies;
     
     MatDestroy(&VS);
     for (int i=0; i<3*ln; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
     for (int i=0; i<9*rn; ++i) VecDestroy(&VS_R[i]); delete [] VS_R;
+
+    delete [] SL_V; 
+    delete [] SR_V;
+    delete [] LVS;
+    delete [] MVS;
+
     PetscFinalize();
   }
 

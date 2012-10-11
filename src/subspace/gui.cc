@@ -26,6 +26,7 @@ namespace subspace {
 #define LOCK_BACK_BUFFER_SELECT 0x10
 #define LOCK_MODE_SELECT      0x20
 #define LOCK_MODE_SPEC        0x40
+  //#define LOCK_MODE_DEFORM      0x80
 
   std::string spec_info="";
 
@@ -48,9 +49,6 @@ namespace subspace {
   const GLfloat mat_shininess[] = {100};
 
   const GLfloat perfect_factor = 1.414;
-
-
-
 
   inline void MatxTranslate(GLfloat* Mat, GLfloat* BMat, GLdouble x, GLdouble y, GLdouble z) {
     for (int i=0; i<12; ++i) Mat[i] = BMat[i];
@@ -105,6 +103,7 @@ namespace subspace {
   }
 
 
+
   Scene::Scene(int argc, char** argv) 
     :width(800), height(800) {
     currentScene = this; //static member need definition
@@ -139,6 +138,8 @@ namespace subspace {
     glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(1.,1.);
 
+    glEnableClientState(GL_NORMAL_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
   }
 
 
@@ -150,8 +151,8 @@ namespace subspace {
     else {
       text2render = "iMeshDeform\t";
       if (current_state & LOCK_MODE_SELECT)
-	text2render += "| Selection Mode\t";
-      else 
+	text2render += "| Select Mode\t";
+      else
 	text2render += "| Normal Mode\t";
     }
     
@@ -213,32 +214,30 @@ namespace subspace {
     if (current_state & LOCK_MODE_SELECT) {
       glPushMatrix();//push i-th matrix
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+      glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_solid);
       currentScene->object->draw();
       glPopMatrix();//pop i-th matrix
       glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_wire);
-    }
+    }  
 
 
     // draw object
     glPushMatrix();//push i-th matrix
-    //glCallList(currentScene->object->LIST_NAME);       
-    //    glMultMatrixf(currentScene->object->transMat);
     if (wireOrNot) 
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     else
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    //    if (current_state & LOCK_MODE_SELECT) 
-    //      currentScene->context->draw();
-      //    else 
     currentScene->object->draw();		    
-    if (current_state & LOCK_MODE_SELECT)
-      glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_solid);
-
 
     glDisable(GL_DEPTH_TEST);
-    glPushMatrix();
     glEnable(GL_COLOR_MATERIAL);
+
+
+    currentScene->handsel->draw(win_world_radio);
+
+
+    glPushMatrix();
     glColor4f(.5, .5, 0., 0.75);
     glTranslatef(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
     glutSolidSphere(5*win_world_radio , 20, 20);
@@ -301,7 +300,9 @@ namespace subspace {
 
   void Scene::bind(Object* obj) {
     context = obj; object = obj; 
-    vertsel = new VertSelect(obj);
+    vertsel = new VertSelect(obj); 
+    currentScene->handsel = new HandlerSelect(obj);
+
     cursor = context->center;
     
     glClearColor(0, 0, 0, 0.0);
@@ -477,22 +478,35 @@ namespace subspace {
 
 
     if (key == 9) {// TAB key, switch between selection mode and normal mode
-      if (current_state & LOCK_MODE_SELECT) {
-	current_state &= ~LOCK_MODE_SELECT;
-	wireOrNot = false;	
+      if (current_state & LOCK_MODE_SELECT ) { // return to normal mode
+	current_state = 0;
+	wireOrNot = false;
 	currentScene->context = currentScene->object;
 	glDisableClientState(GL_COLOR_ARRAY);
-      } else {
-	current_state |= LOCK_MODE_SELECT;
+      } else { // set select mode
+	current_state = LOCK_MODE_SELECT;
 	wireOrNot = true;
 	currentScene->context = currentScene->vertsel;
-	glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_solid);
+	if (currentScene->handsel) {
+	  currentScene->handsel->destroy(); 
+	}
 	glEnableClientState(GL_COLOR_ARRAY);
       }
       glutPostRedisplay();
     }
 
     if (!(current_state & 0xf0)) {//Normal mode      
+      if (key == 'd') {
+	currentScene->handsel->delete_selected();
+	currentScene->context = currentScene->object;
+	glutPostRedisplay();
+      }
+
+      if (currentScene->context == currentScene->handsel) {
+	glPushMatrix();
+	glMultMatrixf(currentScene->object->transMat);
+      }
+
       if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
 	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
 	  GLfloat *transMat = currentScene->context->transMat;
@@ -568,27 +582,36 @@ namespace subspace {
 
 	}
       }
+
+      if (currentScene->context == currentScene->handsel) {
+	glPopMatrix();
+      }
+
     } else if (current_state & LOCK_MODE_SELECT) {   
       if (key == 'b') {
 	current_state |= LOCK_BACK_BUFFER_SELECT;     
       }
+      else if (key == 'a') {
+	((VertSelect*) currentScene->context)->toggle_selected();	
+	glutPostRedisplay();
+      }
       else if (key == 'A') {
 	current_state |= LOCK_MODE_SPEC;
-	spec_info = "[r]: Add rigid transformer [h]: Add handler";
+	spec_info = "[r]: Add rigid transformer [h]: Add contraint handler";
 	glutPostRedisplay();
       }
       else if (key == 'r' && (current_state & LOCK_MODE_SPEC)) {
 	current_state &= ~LOCK_MODE_SPEC;
 	spec_info = "";
 	// add rigid transformer
-	currentScene->ss_solver->add_rigid_transformer(((VertSelect*) currentScene->context)->selected);
-	glutPostRedisplay();
+	//currentScene->handsel->add_rigid(((VertSelect*) currentScene->context)->selected);
+	//glutPostRedisplay();
       }
       else if (key == 'h' && (current_state & LOCK_MODE_SPEC)) {
 	current_state &= ~LOCK_MODE_SPEC;
 	spec_info = "";
 	// add linear constraint handler
-	currentScene->ss_solver->add_linear_constraint_handler(((VertSelect*) currentScene->context)->selected);
+	currentScene->handsel->add_constraint(((VertSelect*) currentScene->context)->selected);
 	glutPostRedisplay();
       }
     }
@@ -809,6 +832,14 @@ namespace subspace {
 	    ((VertSelect*) currentScene->context)->register_selected(x-10, viewport[3]-y-10, 21, 21, false, true);	  
 	  else 
 	    ((VertSelect*) currentScene->context)->register_selected(x-10, viewport[3]-y-10, 21, 21, true, true);	  
+	} else {
+	  bool check_if_selected;
+	  if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) 
+	    check_if_selected = currentScene->handsel->register_selected(x, viewport[3]-y, false);	  
+	  else 
+	    check_if_selected = currentScene->handsel->register_selected(x, viewport[3]-y, true);	  
+	  if (check_if_selected) currentScene->context = currentScene->handsel;
+	  else currentScene->context = currentScene->object;
 	}
 
 	glutPostRedisplay();

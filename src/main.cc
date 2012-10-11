@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
   ss_solver.init(mesh);
   ss_solver.load_linear_proxies_vg(group_ids);
   ss_solver.load_rotational_proxies(group_ids);
-  ss_solver.solve();
+  //  ss_solver.solve();
 
   
   Scene scene(argc, argv);
