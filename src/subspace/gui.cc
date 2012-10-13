@@ -545,6 +545,10 @@ namespace subspace {
 	glutPostRedisplay();
       }
 
+      if (key == 'P') {
+	currentScene->handsel->set_solver(currentScene->ss_solver);
+      }
+
 
       if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
 	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {

@@ -5,6 +5,10 @@
 #include "subspace/subspace.hh"
 
 #include "assert.h"
+#include "pthread.h"
+
+#include "time.h"
+
 namespace subspace {
 
   static int vn;
@@ -24,16 +28,25 @@ namespace subspace {
 
   static double *SL_V, *SR_V; // for mesh reconstruction
   static double *LVS, *MVS; //reduced model
+  
 
-  clock_t start, end;
+  static double *Lin, *Rot; //reduced variable
+
+  static double *LSYS, *RHS; // dense matrix, rhs and rotation 
+
+  //  static pthread_t iterate_lin, iterate_rot;
+
+
+  struct timespec start, end;
+#define BILLION  1000000000L
   void clock_start(std::string description) {
-    start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start);
     std::cout << description <<" ... " << std::flush; 
   }
-
   void clock_end() {
-    end = clock();
-    std::cout << "\t[done] " << (static_cast<double> (end) - static_cast<double> (start)) / CLOCKS_PER_SEC <<" seconds" << std::endl;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printf("\t[done] %.3f seconds\n",
+	   (( end.tv_sec - start.tv_sec )+ (double)( end.tv_nsec - start.tv_nsec ) / (double)BILLION ));
   }
 
 
@@ -273,6 +286,16 @@ namespace subspace {
       VecDestroy(&tmp);
     }
 
+    Lin = new double[3*ln]; Rot = new double[9*rn];
+    std::fill(Lin,Lin+3*ln, 0); std::fill(Rot, Rot+9*rn, 0);
+    for (int i=0; i<ln; ++i) 
+      for (int j=0; j<vn; ++j) {
+	Lin[3*i]   += linear_proxies[3*j*3*ln+3*i] * mesh->vertices[j][0];
+	Lin[3*i+1] += linear_proxies[(3*j+1)*3*ln + 3*i+1] * mesh->vertices[j][1];
+	Lin[3*i+2] += linear_proxies[(3*j+2)*3*ln + 3*i+2] * mesh->vertices[j][2];
+      }
+    for (int i=0; i<rn; ++i) Rot[9*i] = Rot[9*i+4] = Rot[9*i+8] = 1.;
+
     clock_end();
   }
 
@@ -288,8 +311,73 @@ namespace subspace {
     delete [] LVS;
     delete [] MVS;
 
+    delete [] Lin;
+    delete [] Rot;
     PetscFinalize();
   }
 
-  
+
+  void reduced_linsolve() {//solve reduced linear variables via dense direct solve
+  }
+
+  void reduced_rotsolve() {//solve reduced rotational variables via SVD
+  } 
+
+  void update_mesh(trimesh::TriMesh *mesh) {
+    //update mesh vertices
+
+    //recompute normals
+    mesh->need_normals();
+  }
+
+  void Subspace::prepare(std::vector< std::vector<float> > & constraints, std::vector<trimesh::point> & constraint_points) { // precompute LU for dense direct solver, initialize Rot and Lin
+    clock_start("Prepare reduced model");
+    int hn = constraints.size();
+    int nsys = 3*ln + 3*hn, ln3 = 3*ln, hn3=3*hn, vn3 =3*vn, rn9=9*rn;
+    LSYS = new double[nsys * nsys]; RHS = new double[nsys*rn9];    
+    std::fill(LSYS, LSYS+nsys*nsys, 0);
+    std::fill(RHS, RHS+nsys*rn9, 0);
+
+    for (int i=0; i<ln3; ++i)
+      for (int j=0; j<ln3; ++j)
+	LSYS[j + i*nsys] = LVS[j + i*ln3];
+
+    for (int k=0; k<ln3; ++k)
+      for (int i=0; i<hn3; ++i) {
+	for (int j=0; j<vn3; ++j) {
+	  LSYS[k + (ln3 + i)*nsys] += constraints[i/3][j/3] * SL_V[j + vn3*(k)];
+	}
+	LSYS[ln3 + i + k*nsys] = LSYS[k + (ln3 + i)*nsys];	
+      }
+
+    for (int i=0; i<rn9; ++i)
+      for (int j=0; j<ln3; ++j)
+	RHS[j + i*nsys] = MVS[j + i*ln3];
+
+
+    for (int k=0; k<rn9; ++k)
+      for (int i=0; i<hn3; ++i) 
+	for (int j=0; j<vn3; ++j)
+	  RHS[ln3+i + k*nsys] -= constraints[i/3][j/3] * SR_V[j + vn3*k];
+
+    ready = true;
+    clock_end();
+  }
+
+#define NUM_OF_ITERATION 10
+  void Subspace::update(std::vector<trimesh::point> & constraint_points){
+    if (ready) {
+      for (int i=0; i<NUM_OF_ITERATION; ++i) {
+	reduced_rotsolve();
+	reduced_linsolve();
+      }
+      update_mesh(mesh);
+    }
+  }
+  void Subspace::terminate() {
+    delete [] LSYS; delete [] RHS;
+    ready = false;
+  }
 }
+
+

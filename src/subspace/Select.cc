@@ -108,7 +108,7 @@ namespace subspace {
     //is_vertex_rigid.resize(vn);
 
     for (int i=0; i< 16; ++i) transMat[i] = (i%5 ==0);
-
+    ss_solver = NULL;
   };
 
   bool HandlerSelect::register_selected(int winX, int winY, bool toselect) {
@@ -193,6 +193,7 @@ namespace subspace {
     std::cout << "Add linear constraint (#vert " << vertex_count << ")" << std::endl;
 
     constraint_points_buffer = constraint_points;
+    if (ss_solver) unset_solver();
   }
 
   void HandlerSelect::delete_selected(){
@@ -211,6 +212,7 @@ namespace subspace {
     }
 
     constraint_points_buffer = constraint_points;
+    if (ss_solver) unset_solver();
   }
 
   /*
@@ -236,7 +238,9 @@ namespace subspace {
 	y[0] = transMat[12] + transMat[0] * x[0] + transMat[4] * x[1] + transMat[8] * x[2];
 	y[1] = transMat[13] + transMat[1] * x[0] + transMat[5] * x[1] + transMat[9] * x[2];
 	y[2] = transMat[14] + transMat[2] * x[0] + transMat[6] * x[1] + transMat[10]* x[2];
-      }	
+      }
+    
+    if (ss_solver) ss_solver->update(constraint_points);
   }
 
   void HandlerSelect::draw(double win_world_radio) {
@@ -252,6 +256,16 @@ namespace subspace {
       glPopMatrix();
     }
   }
+
+  void HandlerSelect::set_solver(Subspace * ss){    
+    ss_solver = ss;
+    ss->prepare(constraints, constraint_points);
+  }
+  void HandlerSelect::unset_solver() {
+    ss_solver->terminate();
+    ss_solver = NULL;
+  }
+
   void HandlerSelect::destroy() {
   }
 

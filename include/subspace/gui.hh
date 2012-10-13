@@ -70,6 +70,7 @@ namespace subspace {
     int vn;
     HandlerSelect(Object*);
     Object  *object;
+    Subspace *ss_solver;
 
     void add_rigid(bool*);
     void add_constraint(bool*);
@@ -85,6 +86,11 @@ namespace subspace {
     void update();
 
     void draw(double);
+
+
+    void set_solver(Subspace *);
+    void unset_solver();
+
     void destroy();
   };
 

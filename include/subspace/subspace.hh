@@ -11,7 +11,8 @@ namespace subspace {
   protected:
     trimesh::TriMesh* mesh;       
     void assembly();
-
+    
+    bool ready;
   public:
     //void add_rigid_constraint(int );
 
@@ -28,8 +29,14 @@ namespace subspace {
     void solve();
 
 
+    // precompute LU and start updating thread
+    void prepare(std::vector< std::vector<float> > &, std::vector<trimesh::point> &);
+
     // online solve and update vertices
-    void update(std::vector<double> );
+    void update(std::vector<trimesh::point> &);
+
+    // terminate online updating thread
+    void terminate();
   };
 
 
