@@ -31,7 +31,7 @@ namespace subspace {
   std::string spec_info="";
 
 
-  static GLfloat CTM[16], transMat_buffer[16];
+  static GLfloat CTM[16];
 
   const GLfloat light_ambient[] = { .4, .4, .4, 1.0 };
   const GLfloat light_diffuse[] = { .8, .8, .8, 1.0 };
@@ -431,7 +431,21 @@ namespace subspace {
     currentScene->get_window_world_radio();
   }
 
+  void Scene::set_buffer() {
+    
+    for (int i =0;i < 16; ++i) currentScene->object->transMat_buffer[i] = currentScene->object->transMat[i];
 
+    if (currentScene->context == currentScene->handsel) {
+      for (int i =0;i < 16; ++i) currentScene->context->transMat_buffer[i] = (i%5 ==0 );
+      currentScene->handsel->set_buffer();
+    }
+  }
+
+  void Scene::restore_buffer() {
+    for (int i =0;i < 16; ++i) currentScene->context->transMat[i] = currentScene->context->transMat_buffer[i];
+    if (currentScene->context == currentScene->handsel) 
+      currentScene->handsel->restore_buffer();
+  }
 
   void Scene::keyboard(unsigned char key, int x, int y) {
     if (key=='q'||key=='Q') exit(0); //quit
@@ -502,10 +516,6 @@ namespace subspace {
 	glutPostRedisplay();
       }
 
-      if (currentScene->context == currentScene->handsel) {
-	glPushMatrix();
-	glMultMatrixf(currentScene->object->transMat);
-      }
 
       if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
 	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
@@ -517,9 +527,9 @@ namespace subspace {
 	  glutPostRedisplay();
 	}else {
 	  current_state |= LOCK_OBJECT_TRANSLATE;	
-	
+	  currentScene->set_buffer();
 	  glPushMatrix();
-	  glMultMatrixf(currentScene->context->transMat);
+	  glMultMatrixf(currentScene->object->transMat);
       
 	  GLdouble modelview[16], projection[16];
 
@@ -528,7 +538,7 @@ namespace subspace {
 	  gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &origin_x, &origin_y, &origin_z);
 	  glPopMatrix();
 
-	  for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->context->transMat[i];
+	  
 	}
       }
       else if (key == 'r' && !(current_state & ~LOCK_OBJECT_ROTATE)) {
@@ -542,16 +552,16 @@ namespace subspace {
       
 	if (current_state & LOCK_OBJECT_ROTATE){
 	  object_rotate_switch =!object_rotate_switch;
-	  for (int i = 0; i < 16; ++i) currentScene->context->transMat[i] = transMat_buffer[i];
+	  currentScene->restore_buffer();
 	  glutPostRedisplay();
 	} else {
-	  for (int i =0;i < 16; ++i) transMat_buffer[i] = currentScene->context->transMat[i];
+	  currentScene->set_buffer();
 	  current_state |= LOCK_OBJECT_ROTATE;
 	}
 
 	if (object_rotate_switch) {
 	  glPushMatrix();
-	  glMultMatrixf(transMat_buffer);
+	  glMultMatrixf(currentScene->object->transMat);
 	  GLdouble modelview[16], projection[16];
 
 	  d2_x = x; d2_y = y;
@@ -564,7 +574,7 @@ namespace subspace {
 
 	} else {
 	  glPushMatrix();
-	  glMultMatrixf(transMat_buffer);
+	  glMultMatrixf(currentScene->object->transMat);
 	  GLdouble modelview[16], projection[16], t;
 
 	  d2_x = x; d2_y = y;
@@ -583,9 +593,6 @@ namespace subspace {
 	}
       }
 
-      if (currentScene->context == currentScene->handsel) {
-	glPopMatrix();
-      }
 
     } else if (current_state & LOCK_MODE_SELECT) {   
       if (key == 'b') {
@@ -682,18 +689,16 @@ namespace subspace {
   void Scene::pmotion(int x, int y) {
     if (current_state & LOCK_OBJECT_TRANSLATE) {
       glPushMatrix();
-      glMultMatrixf(transMat_buffer);
+      glMultMatrixf(currentScene->object->transMat_buffer);
 
       GLdouble modelview[16], projection[16], tx, ty, tz;
-      GLfloat *transMat = currentScene->context->transMat;
-
 
       glGetDoublev(GL_PROJECTION_MATRIX, projection);
       glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
       glPopMatrix();
       gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &tx, &ty, &tz);
       tx -=origin_x; ty-=origin_y; tz-=origin_z;
-      MatxTranslate(transMat, transMat_buffer, tx, ty, tz);
+      MatxTranslate(currentScene->context->transMat, currentScene->context->transMat_buffer, tx, ty, tz);
 
       glutPostRedisplay();
     }    
@@ -701,7 +706,7 @@ namespace subspace {
       transform_x = x; transform_y = y;
       if (object_rotate_switch) {
 	glPushMatrix();
-	glMultMatrixf(transMat_buffer);
+	glMultMatrixf(currentScene->object->transMat_buffer);
 	GLdouble modelview[16], projection[16],t;
 
 
@@ -719,7 +724,7 @@ namespace subspace {
 	t = 2*SS_PI * std::sqrt(((x-d2_x)*(x-d2_x) + (y-d2_y)*(y-d2_y))/(viewport[2]*viewport[2]+viewport[3]*viewport[3])) ;
 	GLdouble sin,cos;
 	sin = std::sin(t); cos = std::cos(t);
-	MatxRotate(currentScene->context->transMat, transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
+	MatxRotate(currentScene->context->transMat, currentScene->context->transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
 
       } else {
 	GLdouble sin, cos; 
@@ -735,12 +740,19 @@ namespace subspace {
       
 	sin = v1_y * v2_x - v1_x * v2_y;
 	cos = (1+1-(v1*v1+v2*v2))/2;
-	MatxRotate(currentScene->context->transMat, transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
+	MatxRotate(currentScene->context->transMat, currentScene->context->transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
 
       }
+      
       glutPostRedisplay();
       
     }
+
+    if(currentScene->context == currentScene->handsel &&
+       (current_state & (LOCK_OBJECT_ROTATE|LOCK_OBJECT_TRANSLATE))) {
+      currentScene->handsel->update();
+    }
+
   }
 
 // compatibility with original GLUT
@@ -796,8 +808,15 @@ namespace subspace {
       break;
     case GLUT_LEFT_BUTTON:
       if (state == GLUT_DOWN) {	
-	if (current_state & LOCK_OBJECT_TRANSLATE) { current_state &= ~LOCK_OBJECT_TRANSLATE; glutPostRedisplay(); }
-	else if (current_state & LOCK_OBJECT_ROTATE) { current_state &= ~LOCK_OBJECT_ROTATE; object_rotate_switch = false; glutPostRedisplay();}
+	if (current_state & LOCK_OBJECT_TRANSLATE) { 
+	  current_state &= ~LOCK_OBJECT_TRANSLATE; 
+	  glutPostRedisplay(); 
+	}
+	else if (current_state & LOCK_OBJECT_ROTATE) { 
+	  current_state &= ~LOCK_OBJECT_ROTATE; 
+	  object_rotate_switch = false; 
+	  glutPostRedisplay();
+	}
 	else if (current_state & LOCK_BACK_BUFFER_SELECT) { origin_x = x; origin_y = y;}
 
       }
@@ -819,14 +838,13 @@ namespace subspace {
       if (state == GLUT_DOWN) {
 	if (current_state & LOCK_OBJECT_TRANSLATE) {
 	  current_state &= ~LOCK_OBJECT_TRANSLATE;
-	  for (int i=0; i<16; ++i) currentScene->context->transMat[i] = transMat_buffer[i];
+	  currentScene->restore_buffer();
 	}
 	if (current_state & LOCK_OBJECT_ROTATE) {
 	  current_state &= ~LOCK_OBJECT_ROTATE;
 	  object_rotate_switch = false;
-	  for (int i=0; i<16; ++i) currentScene->context->transMat[i] = transMat_buffer[i];	  
+	  currentScene->restore_buffer();
 	}
-
 	if (current_state & LOCK_MODE_SELECT) {
 	  if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) 
 	    ((VertSelect*) currentScene->context)->register_selected(x-10, viewport[3]-y-10, 21, 21, false, true);	  

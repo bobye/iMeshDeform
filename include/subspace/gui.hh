@@ -13,7 +13,7 @@ namespace subspace {
     // center point
     trimesh::point center;
     // transformer
-    GLfloat transMat[16];
+    GLfloat transMat[16], transMat_buffer[16];    
     virtual void destroy();
   };
 
@@ -78,6 +78,12 @@ namespace subspace {
     std::vector< bool > selected;
     bool register_selected(int, int, bool);
     void delete_selected();
+
+    void set_buffer();
+    void restore_buffer();
+
+    void update();
+
     void draw(double);
     void destroy();
   };
@@ -92,6 +98,9 @@ namespace subspace {
     Subspace *ss_solver;//subspace solver
     void get_window_world_radio();
     void add_lights();
+
+    void set_buffer();
+    void restore_buffer();
   public:
     int width,height;
     trimesh::point cursor;
