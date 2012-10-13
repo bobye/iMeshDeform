@@ -1,8 +1,23 @@
 #include "subspace/gui.hh"
 #define SS_PI                       (3.1415926535898)
 
+/*
+#include "sys/time.h"
+#define GetTime(x) clock_gettime(CLOCK_MONOTONIC, x)
+#define TimeType struct timespec
+#define BILLION  1000000000L
+#define DiffTime(s,e) (( s.tv_sec - e.tv_sec )+ (double)( s.tv_nsec - e.tv_nsec ) / (double)BILLION)
+*/
+
+#define GetTime(x) x = glutGet(GLUT_ELAPSED_TIME);
+#define TimeType unsigned int
+#define DiffTime(s,e) ((double) (s-e)/ (double) 1000)
+
 namespace subspace {
 
+  TimeType time, timebase;
+  static unsigned frame =0;
+  char s_fps[10];
 
   void Geometry::destroy(){}
 
@@ -140,6 +155,9 @@ namespace subspace {
 
     glEnableClientState(GL_NORMAL_ARRAY);
     glEnableClientState(GL_VERTEX_ARRAY);
+
+    GetTime(timebase)
+
   }
 
 
@@ -156,6 +174,7 @@ namespace subspace {
 	text2render += "| Normal Mode\t";
     }
     
+    text2render += "| " + std::string(s_fps);
 
 
     glRasterPos2f( 10,10 );
@@ -267,6 +286,16 @@ namespace subspace {
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
 
+
+
+    ++frame;
+    GetTime(time)
+    double accum = DiffTime(time,timebase);
+    if (accum > 1) {
+      sprintf(s_fps,"FPS:%4.1f", frame/accum);
+      timebase = time;
+      frame = 0;
+    }
 
     glutSwapBuffers();
 
