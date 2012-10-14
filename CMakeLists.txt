@@ -2,6 +2,8 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 PROJECT(iMeshDeform)
 
+SET(CMAKE_C_COMPILER icc)
+SET(CMAKE_CXX_COMPILER icpc)
 
 FIND_PACKAGE(GLUT REQUIRED)
 FIND_PACKAGE(OpenGL REQUIRED)
@@ -16,7 +18,7 @@ INCLUDE_DIRECTORIES(include ${GLUT_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR} ${PETSC_IN
 #INCLUDE(${CGAL_USE_FILE})
 ADD_DEFINITIONS(${PETSC_DEFINITIONS})
 
-SET(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-parentheses -Wno-unused -Wno-sign-compare -Wno-unknown-pragmas -fopenmp")
+SET(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-parentheses -Wno-unused -Wno-sign-compare -Wno-unknown-pragmas -fopenmp -mkl")
 SET(LIBS ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${PETSC_LIBRARIES} ${TRIMESH2_LIBRARIES})
 
 

@@ -4,10 +4,17 @@
 
 #include "subspace/subspace.hh"
 
-#include "assert.h"
-#include "pthread.h"
+#include <assert.h>
+//#include "pthread.h"
 
-#include "time.h"
+#include <time.h>
+
+#include <mkl.h>
+#define _SS_SCALAR          double
+#define _SS_MALLOC_SCALAR(x)       (_SS_SCALAR *) mkl_malloc( (x) *sizeof(_SS_SCALAR), 64)
+#define _SS_MALLOC_INT(x)       (int *) mkl_malloc( (x) *sizeof(int), 64)
+#define _SS_FREE(x)         mkl_free(x)
+
 
 namespace subspace {
 
@@ -26,13 +33,14 @@ namespace subspace {
   static Vec* VS_L, *SL;//solved variational subspace
   static Vec* VS_R, *SR;//row major index for each rotation matrix
 
-  static double *SL_V, *SR_V; // for mesh reconstruction
-  static double *LVS, *MVS; //reduced model
+  static _SS_SCALAR *SL_V, *SR_V; // for mesh reconstruction
+  static _SS_SCALAR *LVS, *MVS; //reduced model
   
 
-  static double *Lin, *Rot; //reduced variable
+  static _SS_SCALAR *Lin, *Rot; //reduced variable
 
-  static double *LSYS, *RHS; // dense matrix, rhs and rotation 
+  static _SS_SCALAR *LSYS, *RHS; // dense matrix, rhs and rotation 
+  static int *LSYS_piv;
 
   //  static pthread_t iterate_lin, iterate_rot;
 
@@ -245,7 +253,7 @@ namespace subspace {
     MatDestroy(&L);
     KSPDestroy(&ksp);
 
-    SL_V = new double [3*vn*3*ln]; SR_V = new double [3*vn*9*rn];
+    SL_V = _SS_MALLOC_SCALAR(3*vn*3*ln); SR_V = _SS_MALLOC_SCALAR(3*vn*9*rn);
     PetscInt *indices = new PetscInt[3*vn];
     for (int i=0; i<3*vn; ++i) indices[i] = i;
     for (int i=0; i<3*ln; ++i)
@@ -254,7 +262,7 @@ namespace subspace {
       VecGetValues(SR[i], 3*vn, indices, &SR_V[3*vn*i]);
     delete [] indices;
 
-    LVS = new double [3*ln*3*ln]; MVS = new double [3*ln*9*rn];
+    LVS = _SS_MALLOC_SCALAR (3*ln*3*ln); MVS = _SS_MALLOC_SCALAR(3*ln*9*rn);
 
     indices = new PetscInt[3*ln];
     PetscScalar *zeros = new PetscScalar[3*ln]; std::fill(zeros, zeros + 3*ln, 0.);
@@ -269,6 +277,8 @@ namespace subspace {
       VecAssemblyBegin(SR[i]);
       VecAssemblyEnd(SR[i]);
     }
+
+
 
     for (int i=0; i<3*ln; ++i) {
       Vec tmp; VecDuplicate(SL[i], &tmp);
@@ -286,7 +296,8 @@ namespace subspace {
       VecDestroy(&tmp);
     }
 
-    Lin = new double[3*ln]; Rot = new double[9*rn];
+
+    Lin = _SS_MALLOC_SCALAR(3*ln); Rot = _SS_MALLOC_SCALAR(9*rn);
     std::fill(Lin,Lin+3*ln, 0); std::fill(Rot, Rot+9*rn, 0);
     for (int i=0; i<ln; ++i) 
       for (int j=0; j<vn; ++j) {
@@ -296,7 +307,10 @@ namespace subspace {
       }
     for (int i=0; i<rn; ++i) Rot[9*i] = Rot[9*i+4] = Rot[9*i+8] = 1.;
 
+
     clock_end();
+    std::cout << "  linear Proxies: " << ln << "; rotational Proxies: " << rn << std::endl;
+
   }
 
   Subspace::~Subspace() {        
@@ -306,13 +320,13 @@ namespace subspace {
     for (int i=0; i<3*ln; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
     for (int i=0; i<9*rn; ++i) VecDestroy(&VS_R[i]); delete [] VS_R;
 
-    delete [] SL_V; 
-    delete [] SR_V;
-    delete [] LVS;
-    delete [] MVS;
+    _SS_FREE(SL_V); 
+    _SS_FREE(SR_V);
+    _SS_FREE(LVS);
+    _SS_FREE(MVS);
 
-    delete [] Lin;
-    delete [] Rot;
+    _SS_FREE(Lin);
+    _SS_FREE(Rot);
     PetscFinalize();
   }
 
@@ -331,36 +345,67 @@ namespace subspace {
   }
 
   void Subspace::prepare(std::vector< std::vector<float> > & constraints, std::vector<trimesh::point> & constraint_points) { // precompute LU for dense direct solver, initialize Rot and Lin
+    int hn = constraints.size(); if (hn<3) {std::cout << "Need more constraints!\n" << std::endl; return;}
     clock_start("Prepare reduced model");
-    int hn = constraints.size();
     int nsys = 3*ln + 3*hn, ln3 = 3*ln, hn3=3*hn, vn3 =3*vn, rn9=9*rn;
-    LSYS = new double[nsys * nsys]; RHS = new double[nsys*rn9];    
+
+    _SS_SCALAR *constraints_matrix = _SS_MALLOC_SCALAR(hn3*vn3);
+    _SS_SCALAR *one = _SS_MALLOC_SCALAR(hn3*hn3);
+
+    std::fill(constraints_matrix, constraints_matrix + hn3*vn3, 0);
+    for (int j=0; j < vn3; j+=3)
+      for (int i=0; i < hn3; i+=3)
+	constraints_matrix[(i+2) + (j+2)*hn3] = constraints_matrix[i+1 + (j+1)*hn3] = constraints_matrix[i + j*hn3] = constraints[i/3][j/3]; 
+      
+
+
+    LSYS =  _SS_MALLOC_SCALAR (nsys * nsys); RHS =   _SS_MALLOC_SCALAR (nsys * rn9);    
+    LSYS_piv = _SS_MALLOC_INT(nsys);
+
     std::fill(LSYS, LSYS+nsys*nsys, 0);
     std::fill(RHS, RHS+nsys*rn9, 0);
-
+    std::fill(one, one+hn3*hn3, 0); for (int i=0;i<hn3*hn3;i+=hn3+1) one[i] =1;
+    /*
     for (int i=0; i<ln3; ++i)
       for (int j=0; j<ln3; ++j)
 	LSYS[j + i*nsys] = LVS[j + i*ln3];
-
+    */    
+    dlacpy("F", &ln3, &ln3, LVS, &ln3, LSYS, &nsys); // copy left-top ln3 x ln3 block from LVS
+    /*
     for (int k=0; k<ln3; ++k)
-      for (int i=0; i<hn3; ++i) {
-	for (int j=0; j<vn3; ++j) {
+      for (int i=0; i<hn3; ++i) 
+	for (int j=0; j<vn3; ++j) 
 	  LSYS[k + (ln3 + i)*nsys] += constraints[i/3][j/3] * SL_V[j + vn3*(k)];
-	}
-	LSYS[ln3 + i + k*nsys] = LSYS[k + (ln3 + i)*nsys];	
-      }
+    */
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, hn3, ln3, vn3, 1, constraints_matrix, hn3, SL_V, vn3, 0, LSYS+ln3, nsys); // compute left-bottom hn3 x ln3 block from online constraints
 
+    /*
+    for (int i=ln3; i<nsys; ++i)
+      for (int j=0; j<ln3; ++j)
+	LSYS[j+i*nsys] = LSYS[i+j*nsys];
+    */
+    cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, ln3, hn3, hn3, 1, LSYS+ln3, nsys, one, hn3, 0, LSYS+ln3*nsys, nsys); // copy left-bottom block to right-top block by transpose
+
+    /*
     for (int i=0; i<rn9; ++i)
       for (int j=0; j<ln3; ++j)
 	RHS[j + i*nsys] = MVS[j + i*ln3];
+    */
+    dlacpy("F", &ln3, &rn9, MVS, &ln3, RHS, &nsys); // copy to first ln3 rows of RHS from MVS
 
-
+    /*
     for (int k=0; k<rn9; ++k)
       for (int i=0; i<hn3; ++i) 
 	for (int j=0; j<vn3; ++j)
 	  RHS[ln3+i + k*nsys] -= constraints[i/3][j/3] * SR_V[j + vn3*k];
+    */
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, hn3, rn9, vn3, 1, constraints_matrix, hn3, SR_V, vn3, 0, RHS+ln3, nsys); // compute last hn3 rows of RHS
+
+    LAPACKE_dgetrf(LAPACK_COL_MAJOR, nsys, nsys, LSYS, nsys, LSYS_piv);// compute LU of LSYS
 
     ready = true;
+
+    _SS_FREE(constraints_matrix); _SS_FREE(one);
     clock_end();
   }
 
@@ -375,7 +420,8 @@ namespace subspace {
     }
   }
   void Subspace::terminate() {
-    delete [] LSYS; delete [] RHS;
+    _SS_FREE(LSYS); _SS_FREE(LSYS_piv);
+    _SS_FREE(RHS);
     ready = false;
   }
 }
