@@ -547,6 +547,7 @@ namespace subspace {
 
       if (key == 'P') {
 	currentScene->handsel->set_solver(currentScene->ss_solver);
+	glutPostRedisplay();
       }
 
 

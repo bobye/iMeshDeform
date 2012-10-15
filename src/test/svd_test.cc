@@ -9,7 +9,8 @@ int main(int argc,char* argv[])
     if(argc!=2){printf("Must specify an integer random seed as argument\n");exit(1);}
     srand(atoi(argv[1]));
 
-    float test_A[9], norm_inverse=0., U[9],V[9],S[3];
+    double test_A[9];
+    float norm_inverse=0., U[9],V[9],S[3];
 
     for (int i=0; i<9; ++i) 
       {

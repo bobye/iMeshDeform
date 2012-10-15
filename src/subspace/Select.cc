@@ -228,6 +228,7 @@ namespace subspace {
   }
   void HandlerSelect::restore_buffer() {
     constraint_points = constraint_points_buffer;
+    if (ss_solver) ss_solver->update(constraint_points);
   }
 
   void HandlerSelect::update() {
