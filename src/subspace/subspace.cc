@@ -10,12 +10,61 @@
 #include <time.h>
 
 #include <mkl.h>
+#define _SS_DOUBLE 0// float not supported, because PETSc is configured using double precision
+
+#ifdef  _SS_DOUBLE
 #define _SS_SCALAR          double
+#define _SS_FUNC(x)         d ## x
+#define _SS_CBLAS_FUNC(x)   cblas_d ## x
+#define _SS_LAPACKE_FUNC(x) LAPACKE_d ## x
+
+#elif   _SS_SINGLE
+#define _SS_SCALAR          float
+#define _SS_FUNC(x)         s ## x
+#define _SS_CBLAS_FUNC(x)   cblas_s ## x
+#define _SS_LAPACKE_FUNC(x) LAPACKE_s ## x
+
+#endif
 #define _SS_MALLOC_SCALAR(x)       (_SS_SCALAR *) mkl_malloc( (x) *sizeof(_SS_SCALAR), 64)
 #define _SS_MALLOC_INT(x)       (int *) mkl_malloc( (x) *sizeof(int), 64)
 #define _SS_FREE(x)         mkl_free(x)
 
+
 #include "fsvd.hh"
+inline void proj_rot(_SS_SCALAR* const A, const int n) {
+  for (int i=0; i < 9*n; i+=9) {
+    float U[9], V[9], S[3];
+    _SS_SCALAR *R = A+i;
+    _SS_SCALAR norm = _SS_CBLAS_FUNC(nrm2)(9, R, 1);
+    _SS_CBLAS_FUNC(scal)(9, 1/norm, R, 1);
+    
+    fastsvd<_SS_SCALAR>(R, U, V, S);
+    R[0] = V[0]*U[0] + V[3]*U[3] + V[6]*U[6];
+    R[1] = V[1]*U[0] + V[4]*U[3] + V[7]*U[6];
+    R[2] = V[2]*U[0] + V[5]*U[3] + V[8]*U[6];
+    R[3] = V[0]*U[1] + V[3]*U[4] + V[6]*U[7];
+    R[4] = V[1]*U[1] + V[4]*U[4] + V[7]*U[7];
+    R[5] = V[2]*U[1] + V[5]*U[4] + V[8]*U[7];
+    R[6] = V[0]*U[2] + V[3]*U[5] + V[6]*U[8];
+    R[7] = V[1]*U[2] + V[4]*U[5] + V[7]*U[8];
+    R[8] = V[2]*U[2] + V[5]*U[5] + V[8]*U[8];
+
+  }
+}
+
+inline void apply_rot(float * const y, const _SS_SCALAR *x, const _SS_SCALAR *M, const char Order) {// M in row major
+  if (Order == 'R') {
+    y[0] = M[0]*x[0] + M[1]*x[1] + M[2]*x[2];
+    y[1] = M[3]*x[0] + M[4]*x[1] + M[5]*x[2];
+    y[2] = M[6]*x[0] + M[7]*x[1] + M[8]*x[2];
+  } else if (Order == 'C') {
+    y[0] = M[0]*x[0] + M[3]*x[1] + M[6]*x[2];
+    y[1] = M[1]*x[0] + M[4]*x[1] + M[7]*x[2];
+    y[2] = M[2]*x[0] + M[5]*x[1] + M[8]*x[2];
+  } else {
+    y[0] = x[0]; y[1] = x[1]; y[2] = x[2];
+  }
+}
 
 namespace subspace {
 
@@ -23,7 +72,7 @@ namespace subspace {
 
   static int ln, rn, ln3, rn9;
   //linear proxies
-  static PetscScalar*  linear_proxies; // column major
+  static _SS_SCALAR*  linear_proxies; // column major
   //rotational proxies
   static std::vector<int> rotational_proxies;
 
@@ -41,6 +90,7 @@ namespace subspace {
   static _SS_SCALAR *LVSR, *MVSR; //reduced model for rotational fitting
 
   static _SS_SCALAR *Lin, *Rot, *Rot_b; //reduced variable, 3x3 rotation matrices are of row major
+  static _SS_SCALAR GRot[9]; // global rotation estimation
 
   static _SS_SCALAR *LSYS, *RHS, *RHS_hp; // dense matrix, rhs and rotation 
   static int *LSYS_piv;
@@ -92,7 +142,8 @@ namespace subspace {
     assert(vn == group_ids.size());
     ln = *std::max_element(group_ids.begin(), group_ids.end()) + 1; ln3 = 3*ln;
     std::vector<double> count_vertices; count_vertices.resize(ln);
-    linear_proxies = new PetscScalar[vn3*ln3]; std::fill(linear_proxies, linear_proxies+vn3*ln3, 0);
+    linear_proxies = _SS_MALLOC_SCALAR(vn3*ln3); 
+    std::fill(linear_proxies, linear_proxies+vn3*ln3, 0);
 
     for (int i=0, j=0; i<vn; ++i, j+=3) {
       linear_proxies[3*group_ids[i] + j*ln3] = 1.; // row major
@@ -116,7 +167,7 @@ namespace subspace {
     
   }
 
-#define MULTIPLY(v,n,w) cblas_dscal(n, w, v, 1);
+#define MULTIPLY(v,n,w) _SS_CBLAS_FUNC(scal)(n, w, v, 1);
 
   inline PetscErrorCode mat_edge_assembly_VS(const PetscInt &v0, const PetscInt &v1, const PetscInt &k, const PetscScalar &weight, const trimesh::vec &v) {
     PetscErrorCode ierr;
@@ -374,6 +425,7 @@ namespace subspace {
     Rot = _SS_MALLOC_SCALAR(rn9); Rot_b = _SS_MALLOC_SCALAR(rn9);
     std::fill(Rot, Rot+rn9, 0);
     for (int i=0; i<rn9; i+=9) Rot[i] = Rot[i+4] = Rot[i+8] = 1.;
+    GRot[0]=GRot[4]=GRot[8]=1.;
 
 
     clock_end();
@@ -382,7 +434,7 @@ namespace subspace {
   }
 
   Subspace::~Subspace() {        
-    delete [] linear_proxies;
+    _SS_FREE(linear_proxies);
     
     MatDestroy(&VS);
     for (int i=0; i<ln3; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
@@ -428,28 +480,28 @@ namespace subspace {
       for (int j=0; j<ln3; ++j)
 	LSYS[j + i*nsys] = LVS[j + i*ln3];
     */    
-    dlacpy("F", &ln3, &ln3, LVS, &ln3, LSYS, &nsys); // copy left-top ln3 x ln3 block from LVS
+    _SS_FUNC(lacpy)("F", &ln3, &ln3, LVS, &ln3, LSYS, &nsys); // copy left-top ln3 x ln3 block from LVS
     /*
     for (int k=0; k<ln3; ++k)
       for (int i=0; i<hn3; ++i) 
 	for (int j=0; j<vn3; ++j) 
 	  LSYS[k + (ln3 + i)*nsys] += constraints[i/3][j/3] * SL_V[j + vn3*(k)];
     */
-    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, hn3, ln3, vn3, 1, constraints_matrix, hn3, SL_V, vn3, 0, LSYS+ln3, nsys); // compute left-bottom hn3 x ln3 block from online constraints
+    _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans, hn3, ln3, vn3, 1, constraints_matrix, hn3, SL_V, vn3, 0, LSYS+ln3, nsys); // compute left-bottom hn3 x ln3 block from online constraints
 
     /*
     for (int i=ln3; i<nsys; ++i)
       for (int j=0; j<ln3; ++j)
 	LSYS[j+i*nsys] = LSYS[i+j*nsys];
     */
-    cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, ln3, hn3, hn3, 1, LSYS+ln3, nsys, one, hn3, 0, LSYS+ln3*nsys, nsys); // copy left-bottom block to right-top block by transpose
+    _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasTrans, CblasNoTrans, ln3, hn3, hn3, 1, LSYS+ln3, nsys, one, hn3, 0, LSYS+ln3*nsys, nsys); // copy left-bottom block to right-top block by transpose
 
     /*
     for (int i=0; i<rn9; ++i)
       for (int j=0; j<ln3; ++j)
 	RHS[j + i*nsys] = MVS[j + i*ln3];
     */
-    dlacpy("F", &ln3, &rn9, MVS, &ln3, RHS, &nsys); // copy to first ln3 rows of RHS from MVS
+    _SS_FUNC(lacpy)("F", &ln3, &rn9, MVS, &ln3, RHS, &nsys); // copy to first ln3 rows of RHS from MVS
 
     /*
     for (int k=0; k<rn9; ++k)
@@ -457,9 +509,9 @@ namespace subspace {
 	for (int j=0; j<vn3; ++j)
 	  RHS[ln3+i + k*nsys] -= constraints[i/3][j/3] * SR_V[j + vn3*k];
     */
-    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, hn3, rn9, vn3, -1, constraints_matrix, hn3, SR_V, vn3, 0, RHS+ln3, nsys); // compute last hn3 rows of RHS
+    _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans, hn3, rn9, vn3, -1, constraints_matrix, hn3, SR_V, vn3, 0, RHS+ln3, nsys); // compute last hn3 rows of RHS
 
-    LAPACKE_dgetrf(LAPACK_COL_MAJOR, nsys, nsys, LSYS, nsys, LSYS_piv);// compute LU of LSYS
+    _SS_LAPACKE_FUNC(getrf)(LAPACK_COL_MAJOR, nsys, nsys, LSYS, nsys, LSYS_piv);// compute LU of LSYS
 
     ready = true;
 
@@ -475,18 +527,26 @@ namespace subspace {
 
 
   void reduced_linsolve() {//solve reduced linear variables via dense direct solve
-    cblas_dgemv(CblasColMajor, CblasNoTrans, nsys, rn9, 1, RHS, nsys, Rot, 1, 0, Lin, 1);
-    cblas_daxpy(hn3, 1, RHS_hp, 1, Lin+ln3, 1);
-    LAPACKE_dgetrs(LAPACK_COL_MAJOR, 'N', nsys, 1, LSYS, nsys, LSYS_piv, Lin, nsys);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, nsys, rn9, 1, RHS, nsys, Rot, 1, 0, Lin, 1);
+    _SS_CBLAS_FUNC(axpy)(hn3, 1, RHS_hp, 1, Lin+ln3, 1);
+    _SS_LAPACKE_FUNC(getrs)(LAPACK_COL_MAJOR, 'N', nsys, 1, LSYS, nsys, LSYS_piv, Lin, nsys);
   }
 
   void reduced_rotsolve() {//solve reduced rotational variables via SVD of gradient
-    cblas_dcopy(rn9, Rot, 1, Rot_b, 1);
-    cblas_dgemv(CblasColMajor, CblasNoTrans, rn9, rn9, 1, MVSR, rn9, Rot_b, 1, 0, Rot, 1);
-    cblas_dgemv(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 1, Rot, 1);   
+    _SS_CBLAS_FUNC(copy)(rn9, Rot, 1, Rot_b, 1);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, rn9, 1, MVSR, rn9, Rot_b, 1, 0, Rot, 1);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 1, Rot, 1);   
+    //cblas_dgemv(CblasColMajor, CblasTrans, ln3, rn9, 1, MVS, ln3, Lin, 1, 0, Rot, 1);
 
-    //cblas_dgemv(CblasColMajor, CblasTrans, ln3, rn9, 1, MVS, ln3, Lin, 1, 0, Rot, 1);       
-    dfastsvd(Rot, rn);
+    //compute the sum of Rot
+    /*
+    for (int i=0; i<9; ++i) GRot[i] = _SS_CBLAS_FUNC(asum)(rn, Rot_b+i, 9);
+    proj_rot(GRot, 1);
+    for (int i=0; i<rn; ++i) _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, Rot_b+9*i, 3, GRot, 3, 0, Rot+9*i, 3);
+    */
+    proj_rot(Rot, rn);
+
+    //    for (int i=0; i<hn, ++i) _SS_CBLAS_FUNC(gemv)(CblasRowMajor, 
     /*
     for (int j=0; j<rn; ++j) 
       {for (int i=0; i<9; ++i) printf("%.3f ", Rot[9*j+i]); printf("\n");}
@@ -495,8 +555,8 @@ namespace subspace {
 
   void update_mesh(trimesh::TriMesh *mesh) {
     //update mesh vertices
-    cblas_dgemv(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, vertices, 1);
-    cblas_dgemv(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, vertices, 1);    
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, vertices, 1);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, vertices, 1);    
     /*
     for (int i=0; i<vn3; ++i) vertices_f[i] = (float) vertices[i];
     cblas_scopy(vn, vertices_f, 3, &mesh->vertices[0][0], sizeof(mesh->vertices[0]));
@@ -504,11 +564,8 @@ namespace subspace {
     cblas_scopy(vn, vertices_f+2, 3, &mesh->vertices[0][2], sizeof(mesh->vertices[0]));
     */
 
-    for (int i=0, j=0; i<vn; ++i, j+=3) {
-      mesh->vertices[i][0] = vertices[j];
-      mesh->vertices[i][1] = vertices[j+1];
-      mesh->vertices[i][2] = vertices[j+2];
-    }
+    for (int i=0, j=0; i<vn; ++i, j+=3)
+      apply_rot(mesh->vertices[i], &vertices[j], GRot, 'N');
   }
 
 
