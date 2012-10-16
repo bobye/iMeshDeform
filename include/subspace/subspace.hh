@@ -33,7 +33,7 @@ namespace subspace {
     void prepare(std::vector< std::vector<float> > &, std::vector<trimesh::point> &);
 
     // online solve and update vertices
-    void update(std::vector<trimesh::point> &);
+    void update(std::vector<trimesh::point> &, bool );
 
     // terminate online updating thread
     void terminate();

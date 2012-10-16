@@ -228,10 +228,10 @@ namespace subspace {
   }
   void HandlerSelect::restore_buffer() {
     constraint_points = constraint_points_buffer;
-    if (ss_solver) ss_solver->update(constraint_points);
+    if (ss_solver) ss_solver->update(constraint_points, true);
   }
 
-  void HandlerSelect::update() {
+  void HandlerSelect::update(bool inf) {
     int hn = constraint_points.size();
     for (int i = 0; i < hn; ++i)
       if(selected[i]) {
@@ -241,7 +241,7 @@ namespace subspace {
 	y[2] = transMat[14] + transMat[2] * x[0] + transMat[6] * x[1] + transMat[10]* x[2];
       }
     
-    if (ss_solver) ss_solver->update(constraint_points);
+    if (ss_solver) ss_solver->update(constraint_points, inf);
   }
 
   void HandlerSelect::draw(double win_world_radio) {

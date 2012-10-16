@@ -83,7 +83,7 @@ namespace subspace {
     void set_buffer();
     void restore_buffer();
 
-    void update();
+    void update(bool inf=false);
 
     void draw(double);
 

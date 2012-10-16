@@ -30,6 +30,8 @@ namespace subspace {
   //variational subspace solver
 
   static Mat  VS;//sparse matrix to LU
+  static Mat  RE;//linearization artifacts regulazier
+#define COEFF_REG   (0)
 
   static Vec* VS_L, *SL;//solved variational subspace
   static Vec* VS_R, *SR;//row major index for each rotation matrix
@@ -73,6 +75,10 @@ namespace subspace {
 
     mesh->need_neighbors();
     mesh->need_adjacentfaces();
+    mesh->need_pointareas();
+    //mesh->need_curvatures();
+
+    //    std::cout << mesh->normals[10] << mesh->pdir1[10] << mesh->pdir2[10] << std::endl; exit(0);
 
     vn = mesh->vertices.size(); vn3 = 3*vn;
     rotational_proxies.resize(vn);
@@ -186,6 +192,8 @@ namespace subspace {
 
     MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 0, nnz, &VS); delete [] nnz;
     MatSetOption(VS, MAT_IGNORE_LOWER_TRIANGULAR, PETSC_TRUE);
+    
+    MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 1, PETSC_NULL, &RE);
 
     // create LHS of subspace problem
     VS_L = new Vec[ln3];
@@ -207,6 +215,8 @@ namespace subspace {
     // assembly VS
 
     for (int i = 0; i<vn; ++i) {
+      //trimesh::vec &normal = mesh->normals[i], &pdir1 = mesh->pdir1[i], &pdir2 = mesh->pdir2[2];
+
       std::vector<int> &faces = mesh->adjacentfaces[i];
       int fn = faces.size();
       for (int j= 0; j<fn; ++j) {
@@ -214,11 +224,21 @@ namespace subspace {
 	trimesh::vec v01 = mesh->vertices[v0] - mesh->vertices[v1];
 	trimesh::vec v12 = mesh->vertices[v1] - mesh->vertices[v2];
 	trimesh::vec v20 = mesh->vertices[v2] - mesh->vertices[v0];
-	
+	/*
+	trimesh::vec u01(v01 DOT normal, v01 DOT pdir1, v01 DOT pdir2);
+	trimesh::vec u12(v12 DOT normal, v12 DOT pdir1, v12 DOT pdir2);
+	trimesh::vec u20(v20 DOT normal, v20 DOT pdir1, v20 DOT pdir2);
+	*/
 	mat_edge_assembly_VS(v0, v1, i, std::fabs(1./std::tan(mesh->cornerangle(2,j))), v01);
 	mat_edge_assembly_VS(v1, v2, i, std::fabs(1./std::tan(mesh->cornerangle(0,j))), v12);
 	mat_edge_assembly_VS(v2, v0, i, std::fabs(1./std::tan(mesh->cornerangle(1,j))), v20);
+
       }
+
+      PetscScalar parea = mesh->pointareas[i];
+      for (PetscInt idq = vn3+4*i; idq < vn3+4*i+4; ++idq)
+	MatSetValues(RE, 1, &idq, 1, &idq, &parea, INSERT_VALUES);
+
     }
 
     // assembly VH
@@ -236,6 +256,8 @@ namespace subspace {
 
     MatAssemblyBegin(VS,MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(VS,MAT_FINAL_ASSEMBLY);
+    MatAssemblyBegin(RE,MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(RE,MAT_FINAL_ASSEMBLY);
 
 
     for (int i=0; i< rn9; ++i) {
@@ -283,6 +305,8 @@ namespace subspace {
 
     /**************************************************/
     // precompute online dense linear system
+    MatAXPY(VS, COEFF_REG, RE, DIFFERENT_NONZERO_PATTERN);
+
     LVS = _SS_MALLOC_SCALAR (ln3*ln3); MVS = _SS_MALLOC_SCALAR(ln3*rn9);
 
     indices = new PetscInt[ln3];
@@ -300,7 +324,7 @@ namespace subspace {
     }
 
     delete [] indices;
-    delete [] zeros;
+    delete [] zeros;    
 
     for (int i=0; i<ln3; ++i) {
       Vec tmp; VecDuplicate(SL[i], &tmp);
@@ -347,7 +371,6 @@ namespace subspace {
 	VecDot(VS_R[i], SR[j], &MVSR[i+j*rn9]);
     }
 
-
     Rot = _SS_MALLOC_SCALAR(rn9); Rot_b = _SS_MALLOC_SCALAR(rn9);
     std::fill(Rot, Rot+rn9, 0);
     for (int i=0; i<rn9; i+=9) Rot[i] = Rot[i+4] = Rot[i+8] = 1.;
@@ -379,7 +402,7 @@ namespace subspace {
 
 
   void Subspace::prepare(std::vector< std::vector<float> > & constraints, std::vector<trimesh::point> & constraint_points) { // precompute LU for dense direct solver, initialize Rot and Lin
-    hn = constraints.size(); if (hn<3) {std::cout << "Need more constraints!\n" << std::endl; return;} hn3 =3*hn;
+    hn = constraint_points.size(); if (hn<3) {std::cout << "Need more constraints!\n" << std::endl; return;} hn3 =3*hn;
 
     clock_start("Prepare reduced model");
     nsys = ln3 + hn3;
@@ -445,7 +468,7 @@ namespace subspace {
 
     _SS_FREE(constraints_matrix); _SS_FREE(one);
     
-    update(constraint_points);
+    update(constraint_points, true);
     clock_end();
   }
 
@@ -458,15 +481,16 @@ namespace subspace {
   }
 
   void reduced_rotsolve() {//solve reduced rotational variables via SVD of gradient
-
     cblas_dcopy(rn9, Rot, 1, Rot_b, 1);
     cblas_dgemv(CblasColMajor, CblasNoTrans, rn9, rn9, 1, MVSR, rn9, Rot_b, 1, 0, Rot, 1);
-    cblas_dgemv(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 0, Rot, 1);   
-
+    cblas_dgemv(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 1, Rot, 1);   
 
     //cblas_dgemv(CblasColMajor, CblasTrans, ln3, rn9, 1, MVS, ln3, Lin, 1, 0, Rot, 1);       
     dfastsvd(Rot, rn);
-
+    /*
+    for (int j=0; j<rn; ++j) 
+      {for (int i=0; i<9; ++i) printf("%.3f ", Rot[9*j+i]); printf("\n");}
+    */
   }
 
   void update_mesh(trimesh::TriMesh *mesh) {
@@ -485,13 +509,11 @@ namespace subspace {
       mesh->vertices[i][1] = vertices[j+1];
       mesh->vertices[i][2] = vertices[j+2];
     }
-    //recompute normals
-    mesh->need_normals();
   }
 
 
 #define NUM_OF_ITERATION 10
-  void Subspace::update(std::vector<trimesh::point> & constraint_points){
+  void Subspace::update(std::vector<trimesh::point> & constraint_points, bool inf){
     if (ready) {
       //      clock_start("Run reduced model");
       for (int i=0, j=0; j<hn; i+=3, ++j) {
@@ -499,12 +521,17 @@ namespace subspace {
 	RHS_hp[i+1] = constraint_points[j][1];
 	RHS_hp[i+2] = constraint_points[j][2];
       }
-  
-      for (int i=0; i<NUM_OF_ITERATION; ++i) {
+      
+      int N = inf? 100: NUM_OF_ITERATION;
+      for (int i=0; i<N; ++i) {
 	reduced_linsolve();
 	reduced_rotsolve();
       }
       update_mesh(mesh);
+      //recompute normals
+
+      if (inf) {mesh->normals.clear(); mesh->need_normals();}
+
       //      clock_end();
     }
   }

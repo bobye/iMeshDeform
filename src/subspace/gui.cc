@@ -842,6 +842,11 @@ namespace subspace {
       break;
     case GLUT_LEFT_BUTTON:
       if (state == GLUT_DOWN) {	
+	if(currentScene->context == currentScene->handsel &&
+	   (current_state & (LOCK_OBJECT_ROTATE|LOCK_OBJECT_TRANSLATE))) {
+	  currentScene->handsel->update(true);
+	}
+
 	if (current_state & LOCK_OBJECT_TRANSLATE) { 
 	  current_state &= ~LOCK_OBJECT_TRANSLATE; 
 	  glutPostRedisplay(); 
