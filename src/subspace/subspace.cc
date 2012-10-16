@@ -90,7 +90,7 @@ namespace subspace {
   static _SS_SCALAR *LVSR, *MVSR; //reduced model for rotational fitting
 
   static _SS_SCALAR *Lin, *Rot, *Rot_b; //reduced variable, 3x3 rotation matrices are of row major
-  static _SS_SCALAR GRot[9]; // global rotation estimation
+  static _SS_SCALAR GRot[9], GRot_b[9], GRot_bb[9]; // global rotation estimation
 
   static _SS_SCALAR *LSYS, *RHS, *RHS_hp; // dense matrix, rhs and rotation 
   static int *LSYS_piv;
@@ -425,7 +425,8 @@ namespace subspace {
     Rot = _SS_MALLOC_SCALAR(rn9); Rot_b = _SS_MALLOC_SCALAR(rn9);
     std::fill(Rot, Rot+rn9, 0);
     for (int i=0; i<rn9; i+=9) Rot[i] = Rot[i+4] = Rot[i+8] = 1.;
-    GRot[0]=GRot[4]=GRot[8]=1.;
+    //GRot[0]=GRot[4]=GRot[8]=1.;
+    GRot[0]=GRot[4]=GRot[8]=1;// GRot[4]=GRot[7]=GRot[8]=std::sqrt(2)/2; GRot[5]=-std::sqrt(2)/2;
 
 
     clock_end();
@@ -528,25 +529,30 @@ namespace subspace {
 
   void reduced_linsolve() {//solve reduced linear variables via dense direct solve
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, nsys, rn9, 1, RHS, nsys, Rot, 1, 0, Lin, 1);
-    _SS_CBLAS_FUNC(axpy)(hn3, 1, RHS_hp, 1, Lin+ln3, 1);
+    for (int i=0; i<hn; ++i) 
+      _SS_CBLAS_FUNC(gemv)(CblasRowMajor, CblasNoTrans, 3, 3, 1, GRot, 3, RHS_hp+3*i, 1, 1, Lin+ln3+3*i, 1);
+    //_SS_CBLAS_FUNC(axpy)(hn3, 1, RHS_hp, 1, Lin+ln3, 1);
     _SS_LAPACKE_FUNC(getrs)(LAPACK_COL_MAJOR, 'N', nsys, 1, LSYS, nsys, LSYS_piv, Lin, nsys);
   }
 
   void reduced_rotsolve() {//solve reduced rotational variables via SVD of gradient
     _SS_CBLAS_FUNC(copy)(rn9, Rot, 1, Rot_b, 1);
-    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, rn9, 1, MVSR, rn9, Rot_b, 1, 0, Rot, 1);
-    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 1, Rot, 1);   
-    //cblas_dgemv(CblasColMajor, CblasTrans, ln3, rn9, 1, MVS, ln3, Lin, 1, 0, Rot, 1);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, rn9, 1, MVSR, rn9, Rot, 1, 0, Rot_b, 1);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 1, Rot_b, 1);   
+    //apply global rotations
 
-    //compute the sum of Rot
-    /*
-    for (int i=0; i<9; ++i) GRot[i] = _SS_CBLAS_FUNC(asum)(rn, Rot_b+i, 9);
-    proj_rot(GRot, 1);
-    for (int i=0; i<rn; ++i) _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasTrans, 3, 3, 3, 1, Rot_b+9*i, 3, GRot, 3, 0, Rot+9*i, 3);
-    */
+    for (int i=0; i<9; ++i) {GRot_b[i]=0; for (int j=i; j< rn9; j+=9) GRot_b[i] += Rot_b[j];}
+    proj_rot(GRot_b, 1); 
+    //    for (int i=0; i<9; ++i) printf("%.3f ", GRot_b[i]); printf("\n");
+
+    _SS_CBLAS_FUNC(copy)(9, GRot, 1, GRot_bb, 1);
+    _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, GRot_b, 3, GRot_bb, 3, 0, GRot, 3);
+    //for (int i=0; i<9; ++i) printf("%.3f ", GRot[i]); printf("\n");
+
+
+    for (int i=0; i<rn; ++i) _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, Rot_b+9*i, 3, GRot_b, 3, 0, Rot+9*i, 3);
     proj_rot(Rot, rn);
 
-    //    for (int i=0; i<hn, ++i) _SS_CBLAS_FUNC(gemv)(CblasRowMajor, 
     /*
     for (int j=0; j<rn; ++j) 
       {for (int i=0; i<9; ++i) printf("%.3f ", Rot[9*j+i]); printf("\n");}
@@ -565,7 +571,7 @@ namespace subspace {
     */
 
     for (int i=0, j=0; i<vn; ++i, j+=3)
-      apply_rot(mesh->vertices[i], &vertices[j], GRot, 'N');
+      apply_rot(mesh->vertices[i], &vertices[j], GRot, 'C');
   }
 
 
@@ -580,10 +586,12 @@ namespace subspace {
       }
       
       int N = inf? 100: NUM_OF_ITERATION;
+      //int N=1;
       for (int i=0; i<N; ++i) {
 	reduced_linsolve();
 	reduced_rotsolve();
       }
+      reduced_linsolve();
       update_mesh(mesh);
       //recompute normals
 
