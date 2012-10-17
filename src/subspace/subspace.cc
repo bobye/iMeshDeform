@@ -476,40 +476,14 @@ namespace subspace {
     std::fill(LSYS, LSYS+nsys*nsys, 0);
     std::fill(RHS, RHS+nsys*rn9, 0);
     std::fill(one, one+hn3*hn3, 0); for (int i=0;i<hn3*hn3;i+=hn3+1) one[i] =1;
-    /*
-    for (int i=0; i<ln3; ++i)
-      for (int j=0; j<ln3; ++j)
-	LSYS[j + i*nsys] = LVS[j + i*ln3];
-    */    
+
     _SS_FUNC(lacpy)("F", &ln3, &ln3, LVS, &ln3, LSYS, &nsys); // copy left-top ln3 x ln3 block from LVS
-    /*
-    for (int k=0; k<ln3; ++k)
-      for (int i=0; i<hn3; ++i) 
-	for (int j=0; j<vn3; ++j) 
-	  LSYS[k + (ln3 + i)*nsys] += constraints[i/3][j/3] * SL_V[j + vn3*(k)];
-    */
     _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans, hn3, ln3, vn3, 1, constraints_matrix, hn3, SL_V, vn3, 0, LSYS+ln3, nsys); // compute left-bottom hn3 x ln3 block from online constraints
 
-    /*
-    for (int i=ln3; i<nsys; ++i)
-      for (int j=0; j<ln3; ++j)
-	LSYS[j+i*nsys] = LSYS[i+j*nsys];
-    */
     _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasTrans, CblasNoTrans, ln3, hn3, hn3, 1, LSYS+ln3, nsys, one, hn3, 0, LSYS+ln3*nsys, nsys); // copy left-bottom block to right-top block by transpose
 
-    /*
-    for (int i=0; i<rn9; ++i)
-      for (int j=0; j<ln3; ++j)
-	RHS[j + i*nsys] = MVS[j + i*ln3];
-    */
     _SS_FUNC(lacpy)("F", &ln3, &rn9, MVS, &ln3, RHS, &nsys); // copy to first ln3 rows of RHS from MVS
 
-    /*
-    for (int k=0; k<rn9; ++k)
-      for (int i=0; i<hn3; ++i) 
-	for (int j=0; j<vn3; ++j)
-	  RHS[ln3+i + k*nsys] -= constraints[i/3][j/3] * SR_V[j + vn3*k];
-    */
     _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans, hn3, rn9, vn3, -1, constraints_matrix, hn3, SR_V, vn3, 0, RHS+ln3, nsys); // compute last hn3 rows of RHS
 
     _SS_LAPACKE_FUNC(getrf)(LAPACK_COL_MAJOR, nsys, nsys, LSYS, nsys, LSYS_piv);// compute LU of LSYS
@@ -543,14 +517,15 @@ namespace subspace {
 
     for (int i=0; i<9; ++i) {GRot_b[i]=0; for (int j=i; j< rn9; j+=9) GRot_b[i] += Rot_b[j];}
     proj_rot(GRot_b, 1); 
-    //    for (int i=0; i<9; ++i) printf("%.3f ", GRot_b[i]); printf("\n");
-
     _SS_CBLAS_FUNC(copy)(9, GRot, 1, GRot_bb, 1);
     _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, GRot_b, 3, GRot_bb, 3, 0, GRot, 3);
+    proj_rot(GRot, 1); proj_rot(GRot, 1); 
+
+    //    for (int i=0; i<9; ++i) printf("%.3f ", GRot_b[i]); printf("\n");
     //for (int i=0; i<9; ++i) printf("%.3f ", GRot[i]); printf("\n");
 
 
-    for (int i=0; i<rn; ++i) _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, Rot_b+9*i, 3, GRot_b, 3, 0, Rot+9*i, 3);
+    _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3*rn, 3, 3, 1, Rot_b, 3, GRot_b, 3, 0, Rot, 3);
     proj_rot(Rot, rn);
 
     /*
