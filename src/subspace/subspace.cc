@@ -81,7 +81,7 @@ namespace subspace {
 
   static Mat  VS;//sparse matrix to LU
   static Mat  RE;//linearization artifacts regulazier
-#define COEFF_REG   (0.0001)
+#define COEFF_REG   (0.00001)
 
   static Vec* VS_L, *SL;//solved variational subspace
   static Vec* VS_R, *SR;//row major index for each rotation matrix
@@ -91,11 +91,11 @@ namespace subspace {
 
   static _SS_SCALAR *LVS_DP, *MVS_DP; //reduced model for linear variational subspace (with dumping)
   static _SS_SCALAR *LVS_ND, *MVS_ND; //reduced model for linear variational subspace (without dumping)
-  bool switch_dump = false;
+  const bool switch_dump = false;
 
   static _SS_SCALAR *LVSR, *MVSR; //reduced model for rotational fitting
 
-  static _SS_SCALAR *Lin, *Rot, *Rot_b, *Rot_bb; //reduced variable, 3x3 rotation matrices are of row major
+  static _SS_SCALAR *Lin, *Rot, *Rot_b; //reduced variable, 3x3 rotation matrices are of row major
   static _SS_SCALAR GRot[9], GRot_b[9], GRot_bb[9]; // global rotation estimation
 
   static _SS_SCALAR *LSYS, *RHS, *RHS_hp; // dense matrix, rhs and rotation 
@@ -103,7 +103,7 @@ namespace subspace {
   static int hn, hn3, nsys;
 
   static _SS_SCALAR *vertices;
-  static _SS_SCALAR *RotNorm;
+  //static _SS_SCALAR *RotNorm;
   //static float *vertices_f;
   //#define MAX_CONSTRAINT_NUMBER   100
   //  static pthread_t iterate_lin, iterate_rot;
@@ -143,8 +143,9 @@ namespace subspace {
     //    vertices_f = new float[vn3];
 
     for (int i=0; i<vn; ++i) totarea += mesh->pointareas[i];
+#ifdef _SS_SHOW_DEBUG
     printf("Total area estimation: %e\n", totarea);
-
+#endif
   }
 
 
@@ -335,6 +336,7 @@ namespace subspace {
     /**************************************************/
     // assembly matrix
     assembly();
+    MatAXPY(VS, COEFF_REG, RE, DIFFERENT_NONZERO_PATTERN);
     /**************************************************/
     // solve sparse system
     Mat L; MatConvert(VS, MATSEQAIJ, MAT_INITIAL_MATRIX, &L);
@@ -403,7 +405,7 @@ namespace subspace {
       }
       VecDestroy(&tmp);
     }
-
+    /*
     MatAXPY(VS, COEFF_REG, RE, DIFFERENT_NONZERO_PATTERN);
     for (int i=0; i<ln3; ++i) {
       Vec tmp; VecDuplicate(SL[i], &tmp);
@@ -421,6 +423,7 @@ namespace subspace {
       }
       VecDestroy(&tmp);
     }
+    */
 
     // by default 
     if (switch_dump) {LVS = LVS_DP; MVS = MVS_DP;}
@@ -430,6 +433,7 @@ namespace subspace {
     /**************************************************/
     // precompute rotational fitting system
     LVSR = _SS_MALLOC_SCALAR (rn9*ln3); MVSR = _SS_MALLOC_SCALAR(rn9*rn9);
+
     indices = new PetscInt[4*vn];
     zeros = new PetscScalar[4*vn]; std::fill(zeros, zeros + 4*vn, 0.);
     for (int i=0; i<4*vn; ++i) indices[i] = 3*vn + i;
@@ -455,7 +459,8 @@ namespace subspace {
 	VecDot(VS_R[i], SR[j], &MVSR[i+j*rn9]);
     }
 
-    Rot = _SS_MALLOC_SCALAR(rn9); Rot_b = _SS_MALLOC_SCALAR(rn9); RotNorm = _SS_MALLOC_SCALAR(2*rn); Rot_bb = _SS_MALLOC_SCALAR(rn9);
+    Rot = _SS_MALLOC_SCALAR(rn9); Rot_b = _SS_MALLOC_SCALAR(rn9); //RotNorm = _SS_MALLOC_SCALAR(2*rn);
+
     std::fill(Rot, Rot+rn9, 0);
     for (int i=0; i<rn9; i+=9) Rot[i] = Rot[i+4] = Rot[i+8] = 1.;
     //GRot[0]=GRot[4]=GRot[8]=1.;
@@ -479,7 +484,7 @@ namespace subspace {
     _SS_FREE(LVS); _SS_FREE(MVS);
     _SS_FREE(LVSR); _SS_FREE(MVSR);
 
-    _SS_FREE(Rot); _SS_FREE(Rot_b); _SS_FREE(RotNorm); _SS_FREE(Rot_bb);
+    _SS_FREE(Rot); _SS_FREE(Rot_b); //_SS_FREE(RotNorm);
 
     _SS_FREE(vertices);
     //delete [] vertices_f;
@@ -545,21 +550,11 @@ namespace subspace {
 
   //#define ROT_STEP_SIZE  10/(totarea * COEFF_REG)
   void reduced_rotsolve() {//solve reduced rotational variables via SVD of gradient
-    //_SS_CBLAS_FUNC(copy)(rn9, Rot, 1, Rot_b, 1);
     //    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasTrans, ln3, rn9, 500, MVS, ln3, Lin, 1, 1, Rot_b, 1);
 
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, rn9, 1, MVSR, rn9, Rot, 1, 0, Rot_b, 1);
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 1, Rot_b, 1);
 
-    //_SS_SCALAR norm_b, norm_bb;
-    //for (int i=0; i<rn; ++i) RotNorm[i] = _SS_CBLAS_FUNC(nrm2)(9, Rot_b+9*i, 1);
-    //for (int i=0; i<rn; ++i) RotNorm[i+rn] = _SS_CBLAS_FUNC(nrm2)(9, Rot_bb+9*i, 1);
-    
-    //    norm_b  = _SS_CBLAS_FUNC(nrm2)(rn, RotNorm, 1);
-    //    norm_bb = _SS_CBLAS_FUNC(nrm2)(rn, RotNorm+rn, 1);
-    //if (10*norm_b < norm_bb) {_SS_CBLAS_FUNC(copy)(rn9, Rot, 1, Rot_b, 1);}
-    //printf("%f\t%f\n", norm_b, norm_bb);
-  
     //apply global rotations
 
     for (int i=0; i<9; ++i) {GRot_b[i]=0; for (int j=i; j< rn9; j+=9) GRot_b[i] += Rot_b[j];}
@@ -621,7 +616,7 @@ namespace subspace {
   }
 
   void Subspace::toggle_dump() {
-    switch_dump = !switch_dump;    
+    //switch_dump = !switch_dump;    
     // by default 
     if (switch_dump) {LVS = LVS_DP; MVS = MVS_DP;}
     else {LVS = LVS_ND; MVS = MVS_ND;}    
@@ -630,12 +625,12 @@ namespace subspace {
 #ifdef _SS_SHOW_DEBUG
   void Subspace::show_debug() {
     //for (int i=0; i<9; ++i) printf("%.3f ", GRot[i]); printf("\n");
-
+    /*
     for (int j=0; j<rn; ++j) 
       {printf("%E ", RotNorm[j]);} printf("\n");
     for (int j=0; j<rn; ++j) 
       {printf("%E ", RotNorm[j+rn]);} printf("\n");
-
+    */
   }
 #endif
 }
