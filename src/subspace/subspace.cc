@@ -69,7 +69,7 @@ inline void apply_rot(float * const y, const _SS_SCALAR *x, const _SS_SCALAR *M,
 namespace subspace {
 
   static int vn, vn3;
-  static _SS_SCALAR totarea;
+  static _SS_SCALAR totarea, avgarea;
 
   static int ln, rn, ln3, rn9;
   //linear proxies
@@ -88,9 +88,10 @@ namespace subspace {
 
   static _SS_SCALAR *SL_V, *SR_V; // for mesh reconstruction
   static _SS_SCALAR *LVS, *MVS; //reduced model for linear variational subspace
-
+  /*
   static _SS_SCALAR *LVS_DP, *MVS_DP; //reduced model for linear variational subspace (with dumping)
   static _SS_SCALAR *LVS_ND, *MVS_ND; //reduced model for linear variational subspace (without dumping)
+  */
   const bool switch_dump = false;
 
   static _SS_SCALAR *LVSR, *MVSR; //reduced model for rotational fitting
@@ -143,6 +144,7 @@ namespace subspace {
     //    vertices_f = new float[vn3];
 
     for (int i=0; i<vn; ++i) totarea += mesh->pointareas[i];
+    avgarea = totarea/vn;
 #ifdef _SS_SHOW_DEBUG
     printf("Total area estimation: %e\n", totarea);
 #endif
@@ -292,13 +294,13 @@ namespace subspace {
 	trimesh::vec u12(v12 DOT normal, v12 DOT pdir1, v12 DOT pdir2);
 	trimesh::vec u20(v20 DOT normal, v20 DOT pdir1, v20 DOT pdir2);
 	*/
-	mat_edge_assembly_VS(v0, v1, i, std::fabs(1./std::tan(mesh->cornerangle(2,j))), v01);
-	mat_edge_assembly_VS(v1, v2, i, std::fabs(1./std::tan(mesh->cornerangle(0,j))), v12);
-	mat_edge_assembly_VS(v2, v0, i, std::fabs(1./std::tan(mesh->cornerangle(1,j))), v20);
+	mat_edge_assembly_VS(v0, v1, i, std::fabs(1./std::tan(mesh->cornerangle(2,j)))/avgarea, v01);
+	mat_edge_assembly_VS(v1, v2, i, std::fabs(1./std::tan(mesh->cornerangle(0,j)))/avgarea, v12);
+	mat_edge_assembly_VS(v2, v0, i, std::fabs(1./std::tan(mesh->cornerangle(1,j)))/avgarea, v20);
 
       }
 
-      PetscScalar parea = mesh->pointareas[i];
+      PetscScalar parea = mesh->pointareas[i]/avgarea;
       for (PetscInt idq = vn3+4*i; idq < vn3+4*i+4; ++idq)
 	MatSetValues(RE, 1, &idq, 1, &idq, &parea, INSERT_VALUES);
 
@@ -369,8 +371,7 @@ namespace subspace {
 
     /**************************************************/
     // precompute online dense linear system (with/without dump)
-    LVS_ND = _SS_MALLOC_SCALAR (ln3*ln3); MVS_ND = _SS_MALLOC_SCALAR(ln3*rn9);
-    LVS_DP = _SS_MALLOC_SCALAR (ln3*ln3); MVS_DP = _SS_MALLOC_SCALAR(ln3*rn9);
+    LVS = _SS_MALLOC_SCALAR (ln3*ln3); MVS = _SS_MALLOC_SCALAR(ln3*rn9);
 
     indices = new PetscInt[ln3];
     PetscScalar *zeros = new PetscScalar[ln3]; std::fill(zeros, zeros + ln3, 0.);
@@ -394,40 +395,17 @@ namespace subspace {
       MatMult(VS, SL[i], tmp);
       
       for (int j=i; j<ln3; ++j) {
-	VecDot(SL[j], tmp, &LVS_ND[ln3*j+i]);
-	LVS_ND[ln3*i+j] = LVS_ND[ln3*j+i];
+	VecDot(SL[j], tmp, &LVS[ln3*j+i]);
+	LVS[ln3*i+j] = LVS[ln3*j+i];
       }
       for (int j=0; j<rn9; ++j) {
-	VecDot(SL[i], VS_R[j], &MVS_ND[ln3*j+i]);
+	VecDot(SL[i], VS_R[j], &MVS[ln3*j+i]);
 	PetscScalar tominus;
 	VecDot(SR[j], tmp, &tominus);
-	MVS_ND[ln3*j+i] -= tominus;
+	MVS[ln3*j+i] -= tominus;
       }
       VecDestroy(&tmp);
     }
-    /*
-    MatAXPY(VS, COEFF_REG, RE, DIFFERENT_NONZERO_PATTERN);
-    for (int i=0; i<ln3; ++i) {
-      Vec tmp; VecDuplicate(SL[i], &tmp);
-      MatMult(VS, SL[i], tmp);
-      
-      for (int j=i; j<ln3; ++j) {
-	VecDot(SL[j], tmp, &LVS_DP[ln3*j+i]);
-	LVS_DP[ln3*i+j] = LVS_DP[ln3*j+i];
-      }
-      for (int j=0; j<rn9; ++j) {
-	VecDot(SL[i], VS_R[j], &MVS_DP[ln3*j+i]);
-	PetscScalar tominus;
-	VecDot(SR[j], tmp, &tominus);
-	MVS_DP[ln3*j+i] -= tominus;
-      }
-      VecDestroy(&tmp);
-    }
-    */
-
-    // by default 
-    if (switch_dump) {LVS = LVS_DP; MVS = MVS_DP;}
-    else {LVS = LVS_ND; MVS = MVS_ND;}
 
 
     /**************************************************/
@@ -542,8 +520,7 @@ namespace subspace {
 
   void reduced_linsolve() {//solve reduced linear variables via dense direct solve
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, nsys, rn9, 1, RHS, nsys, Rot, 1, 0, Lin, 1);
-    for (int i=0; i<hn; ++i) 
-      _SS_CBLAS_FUNC(gemv)(CblasRowMajor, CblasNoTrans, 3, 3, 1, GRot, 3, RHS_hp+3*i, 1, 1, Lin+ln3+3*i, 1);
+    _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasTrans, CblasNoTrans, 3, hn, 3, 1, GRot, 3, RHS_hp, 3, 1, Lin+ln3, 3);
     //_SS_CBLAS_FUNC(axpy)(hn3, 1, RHS_hp, 1, Lin+ln3, 1);
     _SS_LAPACKE_FUNC(getrs)(LAPACK_COL_MAJOR, 'N', nsys, 1, LSYS, nsys, LSYS_piv, Lin, nsys);
   }
@@ -557,7 +534,8 @@ namespace subspace {
 
     //apply global rotations
 
-    for (int i=0; i<9; ++i) {GRot_b[i]=0; for (int j=i; j< rn9; j+=9) GRot_b[i] += Rot_b[j];}
+    for (int i=0; i<9; ++i) 
+      {_SS_SCALAR sum=0; for (int j=i; j< rn9; j+=9) sum += Rot_b[j]; GRot_b[i] = sum;}
     proj_rot(GRot_b, 1); 
     _SS_CBLAS_FUNC(copy)(9, GRot, 1, GRot_bb, 1);
     _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, GRot_b, 3, GRot_bb, 3, 0, GRot, 3);
@@ -618,8 +596,10 @@ namespace subspace {
   void Subspace::toggle_dump() {
     //switch_dump = !switch_dump;    
     // by default 
+    /*
     if (switch_dump) {LVS = LVS_DP; MVS = MVS_DP;}
     else {LVS = LVS_ND; MVS = MVS_ND;}    
+    */
   }
 
 #ifdef _SS_SHOW_DEBUG
