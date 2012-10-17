@@ -548,7 +548,15 @@ namespace subspace {
       if (key == 'P') {
 	currentScene->handsel->set_solver(currentScene->ss_solver);
 	glutPostRedisplay();
+      } else if (key == 'T') {
+	currentScene->handsel->toggle_dump(currentScene->ss_solver);
+	glutPostRedisplay();
       }
+#ifdef _SS_SHOW_DEBUG
+      else if (key == '0') {
+	currentScene->ss_solver->show_debug();
+      }
+#endif
 
 
       if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      

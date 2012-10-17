@@ -266,6 +266,11 @@ namespace subspace {
     ss_solver->terminate();
     ss_solver = NULL;
   }
+  void HandlerSelect::toggle_dump(Subspace *ss) {
+    ss_solver = ss;
+    ss_solver->toggle_dump();
+    ss_solver->prepare(constraints, constraint_points);
+  }
 
   void HandlerSelect::destroy() {
   }

@@ -90,6 +90,7 @@ namespace subspace {
 
     void set_solver(Subspace *);
     void unset_solver();
+    void toggle_dump(Subspace *);
 
     void destroy();
   };
