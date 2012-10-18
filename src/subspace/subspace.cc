@@ -81,7 +81,9 @@ namespace subspace {
 
   static Mat  VS;//sparse matrix to LU
   static Mat  RE;//linearization artifacts regulazier
-#define COEFF_REG   (0.00001)
+#define COEFF_REG_L2      (0.0001)
+#define COEFF_REG_RADIO   (0.5)
+#define COEFF_REG_SMOOTH  (0.3)
 
   static Vec* VS_L, *SL;//solved variational subspace
   static Vec* VS_R, *SR;//row major index for each rotation matrix
@@ -131,6 +133,7 @@ namespace subspace {
   void Subspace::init(trimesh::TriMesh * pm) {
     mesh = pm;
 
+    mesh->need_normals();
     mesh->need_neighbors();
     mesh->need_adjacentfaces();
     mesh->need_pointareas();
@@ -185,51 +188,43 @@ namespace subspace {
 
   inline PetscErrorCode mat_edge_assembly_VS(const PetscInt &v0, const PetscInt &v1, const PetscInt &k, const PetscScalar &weight, const trimesh::vec &v) {
     PetscErrorCode ierr;
-    const PetscInt idx[2] = {3*v0, 3*v1}, idy[2] = {3*v0+1, 3*v1+1}, idz[2] = {3*v0+2, 3*v1+2};    
+    const PetscInt idv[3][2] = {{3*v0, 3*v1}, {3*v0+1, 3*v1+1}, {3*v0+2, 3*v1+2}};    
     const PetscInt idq[4] = {vn3+ 4*k, vn3 + 4*k+1, vn3 + 4*k+2, vn3 + 4*k+3}; 
 
     PetscScalar vvs[4] = {1, -1, -1, 1}; 
     MULTIPLY(vvs, 4, weight)
 
-    ierr = MatSetValues(VS, 2, idx, 2, idx, vvs, ADD_VALUES); CHKERRQ(ierr);
-    ierr = MatSetValues(VS, 2, idy, 2, idy, vvs, ADD_VALUES); CHKERRQ(ierr);
-    ierr = MatSetValues(VS, 2, idz, 2, idz, vvs, ADD_VALUES); CHKERRQ(ierr);
+    ierr = MatSetValues(VS, 2, idv[0], 2, idv[0], vvs, ADD_VALUES); CHKERRQ(ierr);
+    ierr = MatSetValues(VS, 2, idv[1], 2, idv[1], vvs, ADD_VALUES); CHKERRQ(ierr);
+    ierr = MatSetValues(VS, 2, idv[2], 2, idv[2], vvs, ADD_VALUES); CHKERRQ(ierr);
+    
+    PetscScalar vqs[3][8] = {{v[0], 0, v[2], -v[1], -v[0], 0, -v[2], v[1]},
+			     {v[1], -v[2], 0, v[0], -v[1], v[2], 0, -v[0]},
+			     {v[2], v[1], -v[0], 0, -v[2], -v[1], v[0], 0}};
+    MULTIPLY(vqs[0], 8, -weight)
+    MULTIPLY(vqs[1], 8, -weight)
+    MULTIPLY(vqs[2], 8, -weight)
 
-    PetscScalar vqsx[8] = {v[0], 0, v[2], -v[1], -v[0], 0, -v[2], v[1]};
-    PetscScalar vqsy[8] = {v[1], -v[2], 0, v[0], -v[1], v[2], 0, -v[0]};
-    PetscScalar vqsz[8] = {v[2], v[1], -v[0], 0, -v[2], -v[1], v[0], 0};
-    MULTIPLY(vqsx, 8, -weight)
-    MULTIPLY(vqsy, 8, -weight)
-    MULTIPLY(vqsz, 8, -weight)
+    ierr = MatSetValues(VS, 2, idv[0], 4, idq, vqs[0], ADD_VALUES); CHKERRQ(ierr);
+    ierr = MatSetValues(VS, 2, idv[1], 4, idq, vqs[1], ADD_VALUES); CHKERRQ(ierr);
+    ierr = MatSetValues(VS, 2, idv[2], 4, idq, vqs[2], ADD_VALUES); CHKERRQ(ierr);
 
-    ierr = MatSetValues(VS, 2, idx, 4, idq, vqsx, ADD_VALUES); CHKERRQ(ierr);
-    ierr = MatSetValues(VS, 2, idy, 4, idq, vqsy, ADD_VALUES); CHKERRQ(ierr);
-    ierr = MatSetValues(VS, 2, idz, 4, idq, vqsz, ADD_VALUES); CHKERRQ(ierr);
-
-    PetscScalar vqs[16] = {v[0]*v[0] + v[1]*v[1] + v[2]*v[2], 0, 0, 0,
+    PetscScalar qqs[16] = {v[0]*v[0] + v[1]*v[1] + v[2]*v[2], 0, 0, 0,
 			   0, v[2]*v[2]+v[1]*v[1], -v[0]*v[1], -v[0]*v[2],
 			   0, -v[1]*v[0], v[0]*v[0]+v[2]*v[2], -v[1]*v[2],
 			   0, -v[2]*v[0], -v[2]*v[0], v[1]*v[1]+v[0]*v[0]};
-    MULTIPLY(vqs, 16, weight)
-    ierr = MatSetValues(VS, 4, idq, 4, idq, vqs, ADD_VALUES); CHKERRQ(ierr);
+    MULTIPLY(qqs, 16, weight)
+    ierr = MatSetValues(VS, 4, idq, 4, idq, qqs, ADD_VALUES); CHKERRQ(ierr);
+
+
+    for (int i=0; i<3; ++i) {
+      PetscScalar vs[2] ={v[i], -v[i]};     
+      MULTIPLY(vs, 2, weight)
+      for (int j=0; j<3; ++j)
+	VecSetValues(VS_R[9*rotational_proxies[k]+i+3*j], 2, idv[j], vs, ADD_VALUES);
+      }
 
     PetscScalar vs[4];
-    for (int i=0; i<3; ++i) {
-      vs[0] = v[i]; vs[1] = -v[i];     
-      MULTIPLY(vs, 2, weight)
-      VecSetValues(VS_R[9*rotational_proxies[k]+i], 2, idx, vs, ADD_VALUES);
-    }
-    for (int i=0; i<3; ++i) {
-      vs[0] = v[i]; vs[1] = -v[i];
-      MULTIPLY(vs, 2, weight)
-      VecSetValues(VS_R[9*rotational_proxies[k]+i+3], 2, idy, vs, ADD_VALUES);
-    }
-    for (int i=0; i<3; ++i) {
-      vs[0] = v[i]; vs[1] = -v[i];
-      MULTIPLY(vs, 2, weight)
-      VecSetValues(VS_R[9*rotational_proxies[k]+i+6], 2, idz, vs, ADD_VALUES);
-    }
-
     for (int i=0; i<3; ++i) {
       vs[0] = -v[i]*v[0]; vs[1] = 0; vs[2] = -v[i]*v[2]; vs[3]=v[i]*v[1];
       MULTIPLY(vs, 4, weight)
@@ -245,19 +240,43 @@ namespace subspace {
       MULTIPLY(vs, 4, weight)
       VecSetValues(VS_R[9*rotational_proxies[k]+i+6], 4, idq, vs, ADD_VALUES);
     }
+
+    const PetscInt idqq[4][2] = {{vn3+4*v0, vn3+4*v1},{vn3+4*v0+1, vn3+4*v1+1},{vn3+4*v0+2, vn3+4*v1+2},{vn3+4*v0+3, vn3+4*v1+3}};
+    PetscScalar qqqs[4] = {3, -3, -3, 3};
+    MULTIPLY(qqqs, 4, weight*avgarea*COEFF_REG_SMOOTH)
+    MatSetValues(VS, 2, idqq[0], 2, idqq[0], qqqs, ADD_VALUES);
+    MULTIPLY(qqqs, 4, 2./3.);
+    MatSetValues(VS, 2, idqq[1], 2, idqq[1], qqqs, ADD_VALUES);
+    MatSetValues(VS, 2, idqq[2], 2, idqq[2], qqqs, ADD_VALUES);
+    MatSetValues(VS, 2, idqq[3], 2, idqq[3], qqqs, ADD_VALUES);
+    if (rotational_proxies[v0] != rotational_proxies[v1]) {
+      const PetscInt g0 = rotational_proxies[v0], g1 = rotational_proxies[v1];
+      const PetscInt idrr[9] = {0,4,8,7,5,2,6,3,1};
+      const PetscInt idqr[9] = {0,0,0,1,1,2,2,3,3};
+      PetscInt idqr0[9], idqr1[9];
+      for (int i=0; i<9; ++i) {idqr0[i] = vn3 + 4*v0 + idqr[i]; idqr1[i] = vn3 + 4*v1 + idqr[i];}
+      PetscScalar qrs[9] = {1,1,1, 1, -1, 1, -1, 1, -1};
+      MULTIPLY(qrs, 9, weight*avgarea*COEFF_REG_SMOOTH)
+      for (int i=0; i<9; ++i) VecSetValues(VS_R[9*g1 + idrr[i]], 1, idqr0 +i, qrs +i, ADD_VALUES);
+      for (int i=0; i<9; ++i) VecSetValues(VS_R[9*g0 + idrr[i]], 1, idqr1 +i, qrs +i, ADD_VALUES);
+      MULTIPLY(qrs, 9, -1)
+      for (int i=0; i<9; ++i) VecSetValues(VS_R[9*g0 + idrr[i]], 1, idqr0 +i, qrs +i, ADD_VALUES);
+      for (int i=0; i<9; ++i) VecSetValues(VS_R[9*g1 + idrr[i]], 1, idqr1 +i, qrs +i, ADD_VALUES);
+    }
+
     return ierr;   
   }
 
   void Subspace::assembly() {
     int N = 7*vn + 3*ln; 
     int *nnz = new int[N];
-    for (int i=0; i<vn3; ++i) nnz[i] = 7*mesh->neighbors[i/3].size() + 3*ln + 5;
-    for (int i=0; i<4*vn; ++i) nnz[vn3 + i] = 4;
-    for (int i=0; i<ln3; ++i) nnz[7*vn + i] = 1;
+    for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (mesh->neighbors[i/3].size()+1) + 3*ln;
+    for (int i=0; i<4*vn; ++i) nnz[vn3 + i] = 4 + mesh->neighbors[i/4].size();
+    for (int i=0; i<ln3; ++i)  nnz[7*vn + i] = 1;
 
     MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 0, nnz, &VS); delete [] nnz;
     MatSetOption(VS, MAT_IGNORE_LOWER_TRIANGULAR, PETSC_TRUE);
-    
+
     MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 1, PETSC_NULL, &RE);
 
     // create LHS of subspace problem
@@ -289,20 +308,25 @@ namespace subspace {
 	trimesh::vec v01 = mesh->vertices[v0] - mesh->vertices[v1];
 	trimesh::vec v12 = mesh->vertices[v1] - mesh->vertices[v2];
 	trimesh::vec v20 = mesh->vertices[v2] - mesh->vertices[v0];
-	/*
-	trimesh::vec u01(v01 DOT normal, v01 DOT pdir1, v01 DOT pdir2);
-	trimesh::vec u12(v12 DOT normal, v12 DOT pdir1, v12 DOT pdir2);
-	trimesh::vec u20(v20 DOT normal, v20 DOT pdir1, v20 DOT pdir2);
-	*/
+
 	mat_edge_assembly_VS(v0, v1, i, std::fabs(1./std::tan(mesh->cornerangle(2,j)))/avgarea, v01);
 	mat_edge_assembly_VS(v1, v2, i, std::fabs(1./std::tan(mesh->cornerangle(0,j)))/avgarea, v12);
 	mat_edge_assembly_VS(v2, v0, i, std::fabs(1./std::tan(mesh->cornerangle(1,j)))/avgarea, v20);
 
       }
 
-      PetscScalar parea = mesh->pointareas[i]/avgarea;
-      for (PetscInt idq = vn3+4*i; idq < vn3+4*i+4; ++idq)
-	MatSetValues(RE, 1, &idq, 1, &idq, &parea, INSERT_VALUES);
+      const PetscInt idq[4] = {vn3+ 4*i, vn3 + 4*i+1, vn3 + 4*i+2, vn3 + 4*i+3}; 
+      trimesh::vec n = mesh->normals[i];
+      PetscScalar vqs[16] = {1, 0, 0, 0,
+			     0, n[2]*n[2]+n[1]*n[1], -n[0]*n[1], -n[0]*n[2],
+			     0, -n[1]*n[0], n[0]*n[0]+n[2]*n[2], -n[1]*n[2],
+			     0, -n[2]*n[0], -n[2]*n[0], n[1]*n[1]+n[0]*n[0]};
+      MULTIPLY(vqs, 16, COEFF_REG_RADIO)
+      vqs[0] += (1-COEFF_REG_RADIO);
+      for (int j=1; j<4; ++j) vqs[5*j] += 2*(1-COEFF_REG_RADIO)/3.;
+
+      MULTIPLY(vqs, 16, COEFF_REG_L2 * mesh->pointareas[i]/avgarea)
+      MatSetValues(VS, 4, idq, 4, idq, vqs, ADD_VALUES);
 
     }
 
@@ -338,7 +362,7 @@ namespace subspace {
     /**************************************************/
     // assembly matrix
     assembly();
-    MatAXPY(VS, COEFF_REG, RE, DIFFERENT_NONZERO_PATTERN);
+    //    MatAXPY(VS, COEFF_REG, RE, DIFFERENT_NONZERO_PATTERN);
     /**************************************************/
     // solve sparse system
     Mat L; MatConvert(VS, MATSEQAIJ, MAT_INITIAL_MATRIX, &L);
