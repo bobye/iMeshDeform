@@ -10,47 +10,49 @@
 #include <time.h>
 
 #include <mkl.h>
-#define _SS_DOUBLE // float not supported, because PETSc is configured using double precision
+#define _SS_SINGLE // [SINGLE] precision is faster than [DOUBLE]
 
 #ifdef  _SS_DOUBLE
 #define _SS_SCALAR          double
 #define _SS_FUNC(x)         d ## x
 #define _SS_CBLAS_FUNC(x)   cblas_d ## x
 #define _SS_LAPACKE_FUNC(x) LAPACKE_d ## x
-
-#elif   _SS_SINGLE
+#elif defined  _SS_SINGLE
 #define _SS_SCALAR          float
 #define _SS_FUNC(x)         s ## x
 #define _SS_CBLAS_FUNC(x)   cblas_s ## x
 #define _SS_LAPACKE_FUNC(x) LAPACKE_s ## x
-
 #endif
+
 #define _SS_MALLOC_SCALAR(x)       (_SS_SCALAR *) mkl_malloc( (x) *sizeof(_SS_SCALAR), 64)
 #define _SS_MALLOC_INT(x)       (int *) mkl_malloc( (x) *sizeof(int), 64)
 #define _SS_FREE(x)         mkl_free(x)
 
-
-#include "fsvd.hh"
-inline void proj_rot(_SS_SCALAR* const A, const int n) {
-  for (int i=0; i < 9*n; i+=9) {
-    float U[9], V[9], S[3];
-    _SS_SCALAR *R = A+i;
-    _SS_SCALAR norm = _SS_CBLAS_FUNC(nrm2)(9, R, 1);
-    _SS_CBLAS_FUNC(scal)(9, 1/norm, R, 1);
-    
-    fastsvd<_SS_SCALAR>(R, U, V, S);
-    R[0] = V[0]*U[0] + V[3]*U[3] + V[6]*U[6];
-    R[1] = V[1]*U[0] + V[4]*U[3] + V[7]*U[6];
-    R[2] = V[2]*U[0] + V[5]*U[3] + V[8]*U[6];
-    R[3] = V[0]*U[1] + V[3]*U[4] + V[6]*U[7];
-    R[4] = V[1]*U[1] + V[4]*U[4] + V[7]*U[7];
-    R[5] = V[2]*U[1] + V[5]*U[4] + V[8]*U[7];
-    R[6] = V[0]*U[2] + V[3]*U[5] + V[6]*U[8];
-    R[7] = V[1]*U[2] + V[4]*U[5] + V[7]*U[8];
-    R[8] = V[2]*U[2] + V[5]*U[5] + V[8]*U[8];
-
+struct timespec start, end;
+#define BILLION  1000000000L
+  void clock_start(std::string description) {
+    std::cout << description <<" ... " << std::flush; 
+    clock_gettime(CLOCK_MONOTONIC, &start);
   }
-}
+  void clock_end() {
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printf("\t[done] %.3f seconds\n", (( end.tv_sec - start.tv_sec )+ (double)( end.tv_nsec - start.tv_nsec ) / (double)BILLION ));
+  }
+#ifdef _SS_SHOW_DEBUG
+  struct timespec nstart, nend;
+  inline void nclock_start() {clock_gettime(CLOCK_MONOTONIC, &nstart);}
+  inline void nclock_end() {clock_gettime(CLOCK_MONOTONIC, &nend);     
+    printf("\t%ld nanosec", ((long) ( nend.tv_sec - nstart.tv_sec ) * BILLION + ( nend.tv_nsec - nstart.tv_nsec ) ));}
+#endif 
+
+#ifdef _SS_SHOW_DEBUG
+#define _SS_PROFILE(x) nclock_start(); x nclock_end();
+#else
+#define _SS_PROFILE(x) x
+#endif
+
+#define NUM_OF_SVD_THREAD 2 // parallel 3x3 svd
+#include "fastsvd.hh"
 
 inline void apply_rot(float * const y, const _SS_SCALAR *x, const _SS_SCALAR *M, const char Order) {// M in row major
   if (Order == 'R') {
@@ -73,7 +75,7 @@ namespace subspace {
 
   static int ln, rn, ln3, rn9;
   //linear proxies
-  static _SS_SCALAR*  linear_proxies; // column major
+  static PetscScalar*  linear_proxies; // column major
   //rotational proxies
   static std::vector<int> rotational_proxies;
 
@@ -83,7 +85,6 @@ namespace subspace {
   static Mat  RE;//linearization artifacts regulazier
 #define COEFF_REG_L2      (0.0001)
 #define COEFF_REG_RADIO   (0.5)
-#define COEFF_REG_SMOOTH  (0.3)
 
   static Vec* VS_L, *SL;//solved variational subspace
   static Vec* VS_R, *SR;//row major index for each rotation matrix
@@ -110,19 +111,6 @@ namespace subspace {
   //static float *vertices_f;
   //#define MAX_CONSTRAINT_NUMBER   100
   //  static pthread_t iterate_lin, iterate_rot;
-
-
-  struct timespec start, end;
-#define BILLION  1000000000L
-  void clock_start(std::string description) {
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    std::cout << description <<" ... " << std::flush; 
-  }
-  void clock_end() {
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    printf("\t[done] %.3f seconds\n",
-	   (( end.tv_sec - start.tv_sec )+ (double)( end.tv_nsec - start.tv_nsec ) / (double)BILLION ));
-  }
 
 
   Subspace::Subspace(int argc, char **argv) {
@@ -159,7 +147,7 @@ namespace subspace {
     assert(vn == group_ids.size());
     ln = *std::max_element(group_ids.begin(), group_ids.end()) + 1; ln3 = 3*ln;
     std::vector<double> count_vertices; count_vertices.resize(ln);
-    linear_proxies = _SS_MALLOC_SCALAR(vn3*ln3); 
+    linear_proxies = new PetscScalar[vn3*ln3]; 
     std::fill(linear_proxies, linear_proxies+vn3*ln3, 0);
 
     for (int i=0, j=0; i<vn; ++i, j+=3) {
@@ -184,7 +172,7 @@ namespace subspace {
     
   }
 
-#define MULTIPLY(v,n,w) _SS_CBLAS_FUNC(scal)(n, w, v, 1);
+#define MULTIPLY(v,n,w) cblas_dscal(n, w, v, 1);
 
   inline PetscErrorCode mat_edge_assembly_VS(const PetscInt &v0, const PetscInt &v1, const PetscInt &k, const PetscScalar &weight, const trimesh::vec &v) {
     PetscErrorCode ierr;
@@ -221,47 +209,24 @@ namespace subspace {
       PetscScalar vs[2] ={v[i], -v[i]};     
       MULTIPLY(vs, 2, weight)
       for (int j=0; j<3; ++j)
-	VecSetValues(VS_R[9*rotational_proxies[k]+i+3*j], 2, idv[j], vs, ADD_VALUES);
+	VecSetValues(VS_R[rotational_proxies[k]+rn*(i+3*j)], 2, idv[j], vs, ADD_VALUES);
       }
 
     PetscScalar vs[4];
     for (int i=0; i<3; ++i) {
       vs[0] = -v[i]*v[0]; vs[1] = 0; vs[2] = -v[i]*v[2]; vs[3]=v[i]*v[1];
       MULTIPLY(vs, 4, weight)
-      VecSetValues(VS_R[9*rotational_proxies[k]+i], 4, idq, vs, ADD_VALUES);
+      VecSetValues(VS_R[rotational_proxies[k]+rn*i], 4, idq, vs, ADD_VALUES);
     }
     for (int i=0; i<3; ++i) {
       vs[0] = -v[i]*v[1]; vs[1] = v[i]*v[2]; vs[2] = 0; vs[3]=-v[i]*v[0];
       MULTIPLY(vs, 4, weight)
-      VecSetValues(VS_R[9*rotational_proxies[k]+i+3], 4, idq, vs, ADD_VALUES);
+      VecSetValues(VS_R[rotational_proxies[k]+rn*(i+3)], 4, idq, vs, ADD_VALUES);
     }
     for (int i=0; i<3; ++i) {
       vs[0] = -v[i]*v[2]; vs[1] = -v[i]*v[1]; vs[2] = v[i]*v[0]; vs[3]=0;
       MULTIPLY(vs, 4, weight)
-      VecSetValues(VS_R[9*rotational_proxies[k]+i+6], 4, idq, vs, ADD_VALUES);
-    }
-
-    const PetscInt idqq[4][2] = {{vn3+4*v0, vn3+4*v1},{vn3+4*v0+1, vn3+4*v1+1},{vn3+4*v0+2, vn3+4*v1+2},{vn3+4*v0+3, vn3+4*v1+3}};
-    PetscScalar qqqs[4] = {3, -3, -3, 3};
-    MULTIPLY(qqqs, 4, weight*avgarea*COEFF_REG_SMOOTH)
-    MatSetValues(VS, 2, idqq[0], 2, idqq[0], qqqs, ADD_VALUES);
-    MULTIPLY(qqqs, 4, 2./3.);
-    MatSetValues(VS, 2, idqq[1], 2, idqq[1], qqqs, ADD_VALUES);
-    MatSetValues(VS, 2, idqq[2], 2, idqq[2], qqqs, ADD_VALUES);
-    MatSetValues(VS, 2, idqq[3], 2, idqq[3], qqqs, ADD_VALUES);
-    if (rotational_proxies[v0] != rotational_proxies[v1]) {
-      const PetscInt g0 = rotational_proxies[v0], g1 = rotational_proxies[v1];
-      const PetscInt idrr[9] = {0,4,8,7,5,2,6,3,1};
-      const PetscInt idqr[9] = {0,0,0,1,1,2,2,3,3};
-      PetscInt idqr0[9], idqr1[9];
-      for (int i=0; i<9; ++i) {idqr0[i] = vn3 + 4*v0 + idqr[i]; idqr1[i] = vn3 + 4*v1 + idqr[i];}
-      PetscScalar qrs[9] = {1,1,1, 1, -1, 1, -1, 1, -1};
-      MULTIPLY(qrs, 9, weight*avgarea*COEFF_REG_SMOOTH)
-      for (int i=0; i<9; ++i) VecSetValues(VS_R[9*g1 + idrr[i]], 1, idqr0 +i, qrs +i, ADD_VALUES);
-      for (int i=0; i<9; ++i) VecSetValues(VS_R[9*g0 + idrr[i]], 1, idqr1 +i, qrs +i, ADD_VALUES);
-      MULTIPLY(qrs, 9, -1)
-      for (int i=0; i<9; ++i) VecSetValues(VS_R[9*g0 + idrr[i]], 1, idqr0 +i, qrs +i, ADD_VALUES);
-      for (int i=0; i<9; ++i) VecSetValues(VS_R[9*g1 + idrr[i]], 1, idqr1 +i, qrs +i, ADD_VALUES);
+      VecSetValues(VS_R[rotational_proxies[k]+rn*(i+6)], 4, idq, vs, ADD_VALUES);
     }
 
     return ierr;   
@@ -271,7 +236,7 @@ namespace subspace {
     int N = 7*vn + 3*ln; 
     int *nnz = new int[N];
     for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (mesh->neighbors[i/3].size()+1) + 3*ln;
-    for (int i=0; i<4*vn; ++i) nnz[vn3 + i] = 4 + mesh->neighbors[i/4].size();
+    for (int i=0; i<4*vn; ++i) nnz[vn3 + i] = 4;// + mesh->neighbors[i/4].size();
     for (int i=0; i<ln3; ++i)  nnz[7*vn + i] = 1;
 
     MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 0, nnz, &VS); delete [] nnz;
@@ -385,19 +350,22 @@ namespace subspace {
     // copy subspace solution data to global array
 
     SL_V = _SS_MALLOC_SCALAR(vn3*ln3); SR_V = _SS_MALLOC_SCALAR(vn3*rn9);
-    PetscInt *indices = new PetscInt[vn3];
-    for (int i=0; i<vn3; ++i) indices[i] = i;
-    for (int i=0; i<ln3; ++i)
-      VecGetValues(SL[i], vn3, indices, &SL_V[vn3*i]);
-    for (int i=0; i<rn9; ++i)
-      VecGetValues(SR[i], vn3, indices, &SR_V[vn3*i]);
-    delete [] indices;
+    for (int i=0; i<ln3; ++i) {
+      PetscScalar *buffer;
+      VecGetArray(SL[i], &buffer);
+      for (int j=0; j<vn3; ++j) SL_V[vn3*i+j] = buffer[j];
+    }
+    for (int i=0; i<rn9; ++i) {
+      PetscScalar *buffer;
+      VecGetArray(SR[i], &buffer);
+      for (int j=0; j<vn3; ++j) SR_V[vn3*i+j] = buffer[j];
+    }
 
     /**************************************************/
     // precompute online dense linear system (with/without dump)
     LVS = _SS_MALLOC_SCALAR (ln3*ln3); MVS = _SS_MALLOC_SCALAR(ln3*rn9);
 
-    indices = new PetscInt[ln3];
+    PetscInt *indices = new PetscInt[ln3];
     PetscScalar *zeros = new PetscScalar[ln3]; std::fill(zeros, zeros + ln3, 0.);
     for (int i=0; i<ln3; ++i) indices[i] = 7*vn + i;
     for (int i=0; i<ln3; ++i) {
@@ -419,14 +387,17 @@ namespace subspace {
       MatMult(VS, SL[i], tmp);
       
       for (int j=i; j<ln3; ++j) {
-	VecDot(SL[j], tmp, &LVS[ln3*j+i]);
-	LVS[ln3*i+j] = LVS[ln3*j+i];
+	PetscScalar buffer;
+	VecDot(SL[j], tmp, &buffer);
+	LVS[ln3*j+i] = buffer;
+	LVS[ln3*i+j] = buffer;
       }
       for (int j=0; j<rn9; ++j) {
-	VecDot(SL[i], VS_R[j], &MVS[ln3*j+i]);
+	PetscScalar buffer;
+	VecDot(SL[i], VS_R[j], &buffer);
 	PetscScalar tominus;
 	VecDot(SR[j], tmp, &tominus);
-	MVS[ln3*j+i] -= tominus;
+	MVS[ln3*j+i] = buffer - tominus;
       }
       VecDestroy(&tmp);
     }
@@ -455,18 +426,25 @@ namespace subspace {
 
 
     for (int i=0; i<rn9; ++i) {
-      for (int j=0; j<ln3; ++j)
-	VecDot(VS_R[i], SL[j], &LVSR[i+j*rn9]);
-      for (int j=0; j<rn9; ++j)
-	VecDot(VS_R[i], SR[j], &MVSR[i+j*rn9]);
+      for (int j=0; j<ln3; ++j) {
+	PetscScalar buffer;
+	VecDot(VS_R[i], SL[j], &buffer);
+	LVSR[i+j*rn9] = buffer;
+      }
+      for (int j=0; j<rn9; ++j) {
+	PetscScalar buffer;
+	VecDot(VS_R[i], SR[j], &buffer);
+	MVSR[i+j*rn9] = buffer;
+      }
     }
 
     Rot = _SS_MALLOC_SCALAR(rn9); Rot_b = _SS_MALLOC_SCALAR(rn9); //RotNorm = _SS_MALLOC_SCALAR(2*rn);
 
     std::fill(Rot, Rot+rn9, 0);
-    for (int i=0; i<rn9; i+=9) Rot[i] = Rot[i+4] = Rot[i+8] = 1.;
-    //GRot[0]=GRot[4]=GRot[8]=1.;
-    GRot[0]=GRot[4]=GRot[8]=1;// GRot[4]=GRot[7]=GRot[8]=std::sqrt(2)/2; GRot[5]=-std::sqrt(2)/2;
+    for (int i=0; i<rn; ++i) Rot[i] = Rot[i+4*rn] = Rot[i+8*rn] = 1.;
+    init_svd(Rot, rn, NUM_OF_SVD_THREAD);
+
+    GRot[0]=GRot[4]=GRot[8]=1;
 
 
     clock_end();
@@ -551,26 +529,28 @@ namespace subspace {
 
   //#define ROT_STEP_SIZE  10/(totarea * COEFF_REG)
   void reduced_rotsolve() {//solve reduced rotational variables via SVD of gradient
-    //    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasTrans, ln3, rn9, 500, MVS, ln3, Lin, 1, 1, Rot_b, 1);
-
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, rn9, 1, MVSR, rn9, Rot, 1, 0, Rot_b, 1);
+
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 1, Rot_b, 1);
 
     //apply global rotations
-
     for (int i=0; i<9; ++i) 
-      {_SS_SCALAR sum=0; for (int j=i; j< rn9; j+=9) sum += Rot_b[j]; GRot_b[i] = sum;}
+      {_SS_SCALAR sum=0; for (int j=i*rn; j< i*rn+rn; ++j) sum += Rot_b[j]; GRot_b[i] = sum;}
     proj_rot(GRot_b, 1); 
+
     _SS_CBLAS_FUNC(copy)(9, GRot, 1, GRot_bb, 1);
     _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1, GRot_b, 3, GRot_bb, 3, 0, GRot, 3);
-    proj_rot(GRot, 1); proj_rot(GRot, 1); 
 
-    //for (int i=0; i<9; ++i) printf("%.3f ", GRot_b[i]); printf("\n");
-    //for (int i=0; i<9; ++i) printf("%.3f ", GRot[i]); printf("\n");
+    proj_rot(GRot, 1); //proj_rot(GRot, 1); 
+    std::swap<_SS_SCALAR>(GRot[1], GRot[3]);
+    std::swap<_SS_SCALAR>(GRot[2], GRot[6]);
+    std::swap<_SS_SCALAR>(GRot[5], GRot[7]);
 
 
-    _SS_CBLAS_FUNC(gemm)(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3*rn, 3, 3, 1, Rot_b, 3, GRot_b, 3, 0, Rot, 3);
+    _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans, 3*rn, 3, 3, 1, Rot_b, 3*rn, GRot_b, 3, 0, Rot, 3*rn);
+
     proj_rot(Rot, rn);
+    //    for (int i=0; i<9; ++i) printf("%.3f ", Rot[10+i*rn]); printf("\n");
 
   }
 
@@ -578,6 +558,7 @@ namespace subspace {
     //update mesh vertices
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, vertices, 1);
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, vertices, 1);    
+
 
     for (int i=0, j=0; i<vn; ++i, j+=3)
       apply_rot(mesh->vertices[i], &vertices[j], GRot, 'C');
@@ -587,7 +568,6 @@ namespace subspace {
 #define NUM_OF_ITERATION 10
   void Subspace::update(std::vector<trimesh::point> & constraint_points, bool inf){
     if (ready) {
-      //      clock_start("Run reduced model");
       for (int i=0, j=0; j<hn; i+=3, ++j) {
 	RHS_hp[i] = constraint_points[j][0];
 	RHS_hp[i+1] = constraint_points[j][1];
@@ -597,16 +577,14 @@ namespace subspace {
       int N = inf? 100: NUM_OF_ITERATION;
       //int N=1;
       for (int i=0; i<N; ++i) {
-	reduced_linsolve();
-	reduced_rotsolve();
+	    reduced_linsolve();
+	    reduced_rotsolve();
       }
       reduced_linsolve();
-      update_mesh(mesh);
+      update_mesh(mesh); 
       //recompute normals
 
-      if (inf) {mesh->normals.clear(); mesh->need_normals();}
-
-      //      clock_end();
+      if (inf) { mesh->normals.clear(); mesh->need_normals();}
     }
   }
   void Subspace::terminate() {
