@@ -2,7 +2,6 @@
 #define _GUI_H_
 
 #include <vector>
-#include "TriMesh.h"
 #include "subspace.hh"
 #include <GL/glut.h>
 
@@ -11,7 +10,7 @@ namespace subspace {
   class Geometry {
   public:
     // center point
-    trimesh::point center;
+    Point center;
     // transformer
     GLfloat transMat[16], transMat_buffer[16];    
     virtual void destroy();
@@ -21,11 +20,11 @@ namespace subspace {
   class Object : public Geometry {
   public:
     // mesh data
-    trimesh::TriMesh *mesh;    
+    Mesh *mesh;    
     // bounding box
     GLfloat bbox[6], size;
     
-    Object(trimesh::TriMesh*);
+    Object(Mesh*);
 
 
     // render!
@@ -33,6 +32,8 @@ namespace subspace {
     void back_draw();
     void draw();
     virtual void destroy();
+
+    //    friend class Subspace;
   };
 
 
@@ -43,7 +44,7 @@ namespace subspace {
     void update_color();
   public:
     Object  *object;
-    int vn;//    trimesh::TriMesh *mesh;
+    int vn;//    
     bool *selected;
 
     GLubyte *black;
@@ -59,7 +60,7 @@ namespace subspace {
   class HandlerSelect : public Geometry {
   protected:
     std::vector< std::vector<float> > constraints; 
-    std::vector< trimesh::point > constraint_points;
+    std::vector< Point > constraint_points;
     /*
     std::vector< std::vector<bool> > rigids;
     std::vector< float[12] > rigid_transforms; 
@@ -91,7 +92,7 @@ namespace subspace {
     void set_solver(Subspace *);
     void unset_solver();
 
-    trimesh::point set_focus();
+    Point set_focus();
 
     void destroy();
   };
@@ -111,7 +112,7 @@ namespace subspace {
     void restore_buffer();
   public:
     int width,height;
-    trimesh::point cursor;
+    Point cursor;
     // transformer
     static Scene * currentScene;
     Scene(int , char**);

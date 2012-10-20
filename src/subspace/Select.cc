@@ -175,7 +175,7 @@ namespace subspace {
   }
   */
 
-  static std::vector<trimesh::point> constraint_points_buffer;
+  static std::vector<Point> constraint_points_buffer;
 
   void HandlerSelect::add_constraint(bool * selected) {
     int vertex_count=0, rt_count = constraints.size();
@@ -183,7 +183,7 @@ namespace subspace {
     for (int i=0; i<vn; ++i)       
       vertex_count += (constraints[rt_count][i] = selected[i]);
 
-    trimesh::point constraint_center;
+    Point constraint_center;
     for (int i=0; i<vn; ++i) {
       constraints[rt_count][i]/=vertex_count;
       constraint_center += constraints[rt_count][i]*object->mesh->vertices[i];
@@ -198,7 +198,7 @@ namespace subspace {
 
   void HandlerSelect::delete_selected(){
     std::vector<bool>::iterator iter = selected.begin();
-    std::vector<trimesh::point>::iterator piter = constraint_points.begin();
+    std::vector<Point>::iterator piter = constraint_points.begin();
     std::vector< std::vector<float> >::iterator viter=constraints.begin();
 
     while (iter < selected.end()) {
@@ -235,7 +235,7 @@ namespace subspace {
     int hn = constraint_points.size();
     for (int i = 0; i < hn; ++i)
       if(selected[i]) {
-	trimesh::point &x = constraint_points_buffer[i], &y = constraint_points[i];
+	Point &x = constraint_points_buffer[i], &y = constraint_points[i];
 	y[0] = transMat[12] + transMat[0] * x[0] + transMat[4] * x[1] + transMat[8] * x[2];
 	y[1] = transMat[13] + transMat[1] * x[0] + transMat[5] * x[1] + transMat[9] * x[2];
 	y[2] = transMat[14] + transMat[2] * x[0] + transMat[6] * x[1] + transMat[10]* x[2];
@@ -274,9 +274,9 @@ namespace subspace {
   }
   */
 
-  trimesh::point HandlerSelect::set_focus(){
+  Point HandlerSelect::set_focus(){
     int hn = constraint_points.size(), count =0;
-    trimesh::point pbuf(0,0,0);
+    Point pbuf(0,0,0);
     
     for (int i= 0; i<hn; ++i)
       if (selected[i]) {

@@ -118,7 +118,7 @@ namespace subspace {
   };
 
 
-  void Subspace::init(trimesh::TriMesh * pm) {
+  void Subspace::init(Mesh * pm) {
     mesh = pm;
 
     mesh->need_normals();
@@ -174,7 +174,7 @@ namespace subspace {
 
 #define MULTIPLY(v,n,w) cblas_dscal(n, w, v, 1);
 
-  inline PetscErrorCode mat_edge_assembly_VS(const PetscInt &v0, const PetscInt &v1, const PetscInt &k, const PetscScalar &weight, const trimesh::vec &v) {
+  inline PetscErrorCode mat_edge_assembly_VS(const PetscInt &v0, const PetscInt &v1, const PetscInt &k, const PetscScalar &weight, const Vector &v) {
     PetscErrorCode ierr;
     const PetscInt idv[3][2] = {{3*v0, 3*v1}, {3*v0+1, 3*v1+1}, {3*v0+2, 3*v1+2}};    
     const PetscInt idq[4] = {vn3+ 4*k, vn3 + 4*k+1, vn3 + 4*k+2, vn3 + 4*k+3}; 
@@ -270,9 +270,9 @@ namespace subspace {
       int fn = faces.size();
       for (int j= 0; j<fn; ++j) {
 	int v0 = mesh->faces[faces[j]][0], v1 = mesh->faces[faces[j]][1], v2 = mesh->faces[faces[j]][2];
-	trimesh::vec v01 = mesh->vertices[v0] - mesh->vertices[v1];
-	trimesh::vec v12 = mesh->vertices[v1] - mesh->vertices[v2];
-	trimesh::vec v20 = mesh->vertices[v2] - mesh->vertices[v0];
+	Vector v01 = mesh->vertices[v0] - mesh->vertices[v1];
+	Vector v12 = mesh->vertices[v1] - mesh->vertices[v2];
+	Vector v20 = mesh->vertices[v2] - mesh->vertices[v0];
 
 	mat_edge_assembly_VS(v0, v1, i, std::fabs(1./std::tan(mesh->cornerangle(2,j)))/avgarea, v01);
 	mat_edge_assembly_VS(v1, v2, i, std::fabs(1./std::tan(mesh->cornerangle(0,j)))/avgarea, v12);
@@ -281,7 +281,7 @@ namespace subspace {
       }
 
       const PetscInt idq[4] = {vn3+ 4*i, vn3 + 4*i+1, vn3 + 4*i+2, vn3 + 4*i+3}; 
-      trimesh::vec n = mesh->normals[i];
+      Vector n = mesh->normals[i];
       PetscScalar vqs[16] = {1, 0, 0, 0,
 			     0, n[2]*n[2]+n[1]*n[1], -n[0]*n[1], -n[0]*n[2],
 			     0, -n[1]*n[0], n[0]*n[0]+n[2]*n[2], -n[1]*n[2],
@@ -476,7 +476,7 @@ namespace subspace {
   }
 
   void Subspace::prepare(std::vector< std::vector<float> > & constraints,
-			 std::vector< trimesh::point > & constraint_points) { 
+			 std::vector< Point > & constraint_points) { 
     // precompute LU for dense direct solver, initialize Rot and Lin
     hn = constraints.size(); if (hn<3) {std::cout << "Need more constraints!\n" << std::endl; return;} hn3 =3*hn;
 
@@ -557,7 +557,7 @@ namespace subspace {
 
   }
 
-  void update_mesh(trimesh::TriMesh *mesh) {
+  void update_mesh(Mesh *mesh) {
     //update mesh vertices
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, vertices, 1);
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, vertices, 1);    
@@ -569,7 +569,7 @@ namespace subspace {
 
 
 #define NUM_OF_ITERATION 10
-  void Subspace::update(std::vector<trimesh::point> & constraint_points, bool inf){
+  void Subspace::update(std::vector<Point> & constraint_points, bool inf){
     if (ready) {
       for (int i=0, j=0; j<hn; i+=3, ++j) {
 	RHS_hp[i] = constraint_points[j][0];

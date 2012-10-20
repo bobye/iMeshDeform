@@ -4,13 +4,13 @@
 #define _SS_SHOW_DEBUG
 
 #include <vector>
-#include "TriMesh.h"
+#include "geometry.hh"
 
 namespace subspace {
   
   class Subspace {
   protected:
-    trimesh::TriMesh* mesh;       
+    Mesh* mesh;       
     void assembly();
     
     bool ready;
@@ -19,7 +19,7 @@ namespace subspace {
 
     Subspace(int, char**);
     ~Subspace();
-    void init(trimesh::TriMesh *);
+    void init(Mesh *);
     
 
     // vg: vertices group
@@ -31,10 +31,10 @@ namespace subspace {
 
 
     // precompute LU and start updating thread
-    void prepare(std::vector< std::vector<float> > &, std::vector<trimesh::point> &);
+    void prepare(std::vector< std::vector<float> > &, std::vector<Point> &);
 
     // online solve and update vertices
-    void update(std::vector<trimesh::point> &, bool );
+    void update(std::vector<Point> &, bool );
 
     // terminate online updating thread
     void terminate();

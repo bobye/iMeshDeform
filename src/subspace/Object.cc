@@ -2,7 +2,7 @@
 #include <string.h>
 
 namespace subspace {
-  Object::Object(trimesh::TriMesh *pmesh) : mesh(pmesh){
+  Object::Object(Mesh *pmesh) : mesh(pmesh){
 
     //compute bounding box
     mesh->need_tstrips();
@@ -22,7 +22,7 @@ namespace subspace {
     glVertexPointer(3, GL_FLOAT, sizeof(mesh->vertices[0]), &mesh->vertices[0][0]);    
   }
 
-  void draw_tstrips(const trimesh::TriMesh *themesh)
+  void draw_tstrips(const Mesh *themesh)
   {
     static bool use_glArrayElement = false;
     static bool tested_renderer = false;
