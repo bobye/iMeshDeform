@@ -51,7 +51,7 @@ struct timespec start, end;
 #define _SS_PROFILE(x) x
 #endif
 
-#define NUM_OF_SVD_THREAD 2 // parallel 3x3 svd
+#define NUM_OF_SVD_THREAD 3 // parallel 3x3 svd
 #include "fastsvd.hh"
 
 inline void apply_rot(float * const y, const _SS_SCALAR *x, const _SS_SCALAR *M, const char Order) {// M in row major
@@ -332,14 +332,18 @@ namespace subspace {
     // solve sparse system
     Mat L; MatConvert(VS, MATSEQAIJ, MAT_INITIAL_MATRIX, &L);
     KSP ksp;
+    PC direct_solver;
     SL = new Vec[ln3]; SR = new Vec[rn9];
     VecDuplicateVecs(VS_L[0], ln3, &SL); VecDuplicateVecs(VS_R[0], rn9, &SR);
     
     KSPCreate(PETSC_COMM_SELF, &ksp);
     KSPSetOperators(ksp, L, L, SAME_PRECONDITIONER);
+    KSPSetType(ksp, KSPPREONLY);
+    KSPGetPC(ksp, &direct_solver);
+    PCSetType(direct_solver, PCLU); // use LU facterization to solve the subspace
     //KSPSetType(ksp, KSPPREONLY);
     KSPSetFromOptions(ksp);
-
+    KSPSetUp(ksp);
 
     for (int i=0; i<ln3; ++i) KSPSolve(ksp, VS_L[i], SL[i]); 
     for (int i=0; i<rn9; ++i) KSPSolve(ksp, VS_R[i], SR[i]); 
@@ -530,7 +534,6 @@ namespace subspace {
   //#define ROT_STEP_SIZE  10/(totarea * COEFF_REG)
   void reduced_rotsolve() {//solve reduced rotational variables via SVD of gradient
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, rn9, 1, MVSR, rn9, Rot, 1, 0, Rot_b, 1);
-
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 1, Rot_b, 1);
 
     //apply global rotations
@@ -574,11 +577,11 @@ namespace subspace {
 	RHS_hp[i+2] = constraint_points[j][2];
       }
       
-      int N = inf? 100: NUM_OF_ITERATION;
+      int N = inf? 42: NUM_OF_ITERATION;
       //int N=1;
       for (int i=0; i<N; ++i) {
-	    reduced_linsolve();
-	    reduced_rotsolve();
+	reduced_linsolve();
+	reduced_rotsolve();
       }
       reduced_linsolve();
       update_mesh(mesh); 
@@ -593,15 +596,6 @@ namespace subspace {
 
     _SS_FREE(RHS_hp); _SS_FREE(Lin);
     ready = false;
-  }
-
-  void Subspace::toggle_dump() {
-    //switch_dump = !switch_dump;    
-    // by default 
-    /*
-    if (switch_dump) {LVS = LVS_DP; MVS = MVS_DP;}
-    else {LVS = LVS_ND; MVS = MVS_ND;}    
-    */
   }
 
 #ifdef _SS_SHOW_DEBUG

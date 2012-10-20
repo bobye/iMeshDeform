@@ -548,8 +548,9 @@ namespace subspace {
       if (key == 'P') {
 	currentScene->handsel->set_solver(currentScene->ss_solver);
 	glutPostRedisplay();
-      } else if (key == 'T') {
-	currentScene->handsel->toggle_dump(currentScene->ss_solver);
+      } else if (key == 'S') {
+	currentScene->cursor = currentScene->handsel->set_focus();
+	//	currentScene->handsel->toggle_dump(currentScene->ss_solver);
 	glutPostRedisplay();
       }
 #ifdef _SS_SHOW_DEBUG

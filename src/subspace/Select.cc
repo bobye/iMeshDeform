@@ -266,12 +266,26 @@ namespace subspace {
     ss_solver->terminate();
     ss_solver = NULL;
   }
+  /*
   void HandlerSelect::toggle_dump(Subspace *ss) {
     ss_solver = ss;
     ss_solver->toggle_dump();
     ss_solver->prepare(constraints, constraint_points);
   }
+  */
 
+  trimesh::point HandlerSelect::set_focus(){
+    int hn = constraint_points.size(), count =0;
+    trimesh::point pbuf(0,0,0);
+    
+    for (int i= 0; i<hn; ++i)
+      if (selected[i]) {
+	pbuf += constraint_points[i]; ++count;
+      }
+    if (count) 
+      return  (float) (1./(float) count) * pbuf;
+    else return object->center;
+  }
   void HandlerSelect::destroy() {
   }
 

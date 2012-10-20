@@ -5,18 +5,27 @@ using namespace trimesh;
 using namespace subspace;
 int main(int argc, char *argv[])
 {
+  // read mesh
   TriMesh *mesh = TriMesh::read(argv[1]);
   if (!mesh) exit(1);
   int vn = mesh->vertices.size();
-  std::fstream fid(argv[2]); std::vector<int> group_ids; group_ids.resize(vn);
+
+  // load linear proxies
+  std::fstream fid(argv[2]); std::vector<int> group_ids1; group_ids1.resize(vn);
   if (!fid) exit(1); 
-  for (int i=0; i<vn; ++i) fid >> group_ids[i];
+  for (int i=0; i<vn; ++i) fid >> group_ids1[i];
+  fid.close();  
+
+  // load rotational proxies
+  fid.open(argv[3]); std::vector<int> group_ids2; group_ids2.resize(vn);
+  if (!fid) exit(1); 
+  for (int i=0; i<vn; ++i) fid >> group_ids2[i];
   fid.close();  
 
   Subspace ss_solver = Subspace(argc,argv);
   ss_solver.init(mesh);
-  ss_solver.load_linear_proxies_vg(group_ids);
-  ss_solver.load_rotational_proxies(group_ids);
+  ss_solver.load_linear_proxies_vg(group_ids1);
+  ss_solver.load_rotational_proxies(group_ids2);
   ss_solver.solve();
 
   
