@@ -8,9 +8,8 @@ namespace subspace {
 
   typedef trimesh::point Point;
   typedef trimesh::vec   Vector;
-  typedef trimesh::xform XForm;
   typedef trimesh::TriMesh Mesh;
 
-
+  typedef trimesh::fxform XForm;
 }
 #endif /* _GEOMETRY_H_ */

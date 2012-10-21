@@ -10,7 +10,7 @@ namespace subspace {
     size = 2*mesh->bsphere.r;
     center = mesh->bsphere.center;
 
-    for (int i=0; i< 16; ++i) transMat[i] = (i%5 ==0);
+    xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
 
   }
 
@@ -66,7 +66,7 @@ namespace subspace {
 
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   
-    glMultMatrixf(transMat);	  
+    glMultMatrixf(xf);	  
     //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
     draw_tstrips(mesh);
     //glDisable(GL_BLEND);
@@ -76,7 +76,7 @@ namespace subspace {
 
   void Object::back_draw(){
     glDisable(GL_LIGHTING);
-    glMultMatrixf(transMat);	  
+    glMultMatrixf(xf);	  
     //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
     draw_tstrips(mesh);
     glEnable(GL_LIGHTING);

@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   ss_solver.init(mesh);
   ss_solver.load_linear_proxies_vg(group_ids1);
   ss_solver.load_rotational_proxies(group_ids2);
-  ss_solver.solve();
+  //ss_solver.solve();
 
   
   Scene scene(argc, argv);
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
   object.register_mesh();
   scene.bind(&object);
 
-  scene.bind(&ss_solver); // bind mesh to subspace solver
+  //  scene.bind(&ss_solver); // bind mesh to subspace solver
 
   scene.view();
   return 0;

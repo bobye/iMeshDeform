@@ -1,4 +1,6 @@
 #include "subspace/gui.hh"
+#include <fstream>
+#include <iostream>
 #define SS_PI                       (3.1415926535898)
 
 /*
@@ -23,7 +25,7 @@ namespace subspace {
 
   Scene* Scene::currentScene;
 
-  static GLfloat scale = 1., win_world_radio;
+  static GLfloat  win_world_radio;
   static GLdouble origin_x, origin_y, origin_z, depth, d2_x, d2_y,
     axis_x, axis_y, axis_z;
   static int transform_x=0, transform_y=0, viewport[4];
@@ -46,7 +48,7 @@ namespace subspace {
   std::string spec_info="";
 
 
-  static GLfloat CTM[16];
+  static XForm CTM;//static GLfloat CTM[16];
 
   const GLfloat light_ambient[] = { .4, .4, .4, 1.0 };
   const GLfloat light_diffuse[] = { .8, .8, .8, 1.0 };
@@ -342,9 +344,6 @@ namespace subspace {
 
 
 
-    scale =1.;
-
-
     add_lights();
 
     /*
@@ -441,9 +440,9 @@ namespace subspace {
 		currentScene->object->size,   20* currentScene->object->size);//(NEW) set up our viewing area
     }
 
-    else            
-      gluPerspective(30*scale, (float)w/(float)h, currentScene->object->size, 20*currentScene->object->size);
-    
+    else {           
+      gluPerspective(30, (float)w/(float)h, currentScene->object->size, 20*currentScene->object->size);
+    }
 	/*
       glFrustum(  - radio * w/perfect_factor,   radio * w/perfect_factor,
 		  - radio * h/perfect_factor,  radio * h/perfect_factor,
@@ -462,17 +461,17 @@ namespace subspace {
 
   void Scene::set_buffer() {
     
-    for (int i =0;i < 16; ++i) currentScene->object->transMat_buffer[i] = currentScene->object->transMat[i];
+    object->xf_buf = object->xf; //for (int i =0;i < 16; ++i) currentScene->object->xf_buf[i] = currentScene->object->xf[i];
 
-    if (currentScene->context == currentScene->handsel) {
-      for (int i =0;i < 16; ++i) currentScene->context->transMat_buffer[i] = (i%5 ==0 );
-      currentScene->handsel->set_buffer();
+    if (context == handsel) {
+      context->xf_buf = XForm::identity(); //for (int i =0;i < 16; ++i) currentScene->context->xf_buf[i] = (i%5 ==0 );
+      handsel->set_buffer();
     }
   }
 
   void Scene::restore_buffer() {
-    for (int i =0;i < 16; ++i) currentScene->context->transMat[i] = currentScene->context->transMat_buffer[i];
-    if (currentScene->context == currentScene->handsel) 
+    context->xf = context->xf_buf; //for (int i =0;i < 16; ++i) currentScene->context->xf[i] = currentScene->context->xf_buf[i];
+    if (context == handsel) 
       currentScene->handsel->restore_buffer();
   }
 
@@ -489,10 +488,12 @@ namespace subspace {
     }
     else if (key=='x' || key == 'X' || key=='y' || key == 'Y' || key=='z' || key == 'Z') { // canonical views
       glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
-      GLfloat tx, ty, tz;
+      /*      GLfloat tx, ty, tz;
       tx = CTM[0]*CTM[12] + CTM[1]*CTM[13] + CTM[2]*CTM[14];
       ty = CTM[4]*CTM[12] + CTM[5]*CTM[13] + CTM[6]*CTM[14];
       tz = CTM[8]*CTM[12] + CTM[9]*CTM[13] + CTM[10]*CTM[14];
+      */
+      invert(CTM);
       glLoadIdentity();
       
       if (key=='x') glRotatef(90, 0,1,0); 
@@ -500,19 +501,13 @@ namespace subspace {
       else if (key == 'y') glRotatef(90, 1,0,0); 
       else if (key == 'Y') glRotatef(-90,1,0,0);
       else if (key == 'Z') glRotatef(180, 0, 1, 0);
-      glTranslated(tx,ty,tz);
+      glTranslated(-CTM[12],-CTM[13],-CTM[14]);
       glutPostRedisplay();
     }
     else if (key == '.') { // focus to object view
       glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
-      GLdouble cx,cy,cz;
-      cx = currentScene->cursor[0]; 
-      cy = currentScene->cursor[1];
-      cz = currentScene->cursor[2];
-      MatxVec(currentScene->context->transMat, cx, cy, cz);
-      CTM[12] = - cx * CTM[0] - cy * CTM[4] - cz * CTM[8];
-      CTM[13] = - cx * CTM[1] - cy * CTM[5] - cz * CTM[9];
-      CTM[14] = - cx * CTM[2] - cy * CTM[6] - cz * CTM[10];
+      Point c = currentScene->object->xf * currentScene->cursor;
+      CTM = rot_only(CTM) * XForm::trans(-c[0],-c[1],-c[2]);
       glLoadIdentity();
       glMultMatrixf(CTM);
       
@@ -562,17 +557,18 @@ namespace subspace {
 
       if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
 	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
-	  GLfloat *transMat = currentScene->context->transMat;
-	  transMat[12] = currentScene->cursor[0];
-	  transMat[13] = currentScene->cursor[1];
-	  transMat[14] = currentScene->cursor[2];
-	  MatxTranslate(transMat, transMat, -currentScene->cursor[0], -currentScene->cursor[1], -currentScene->cursor[2]);
+	  XForm &xf = currentScene->context->xf;
+	  xf[12] = currentScene->cursor[0];
+	  xf[13] = currentScene->cursor[1];
+	  xf[14] = currentScene->cursor[2];
+	  //MatxTranslate(xf, xf, -currentScene->cursor[0], -currentScene->cursor[1], -currentScene->cursor[2]);
+	  xf = xf * XForm::trans( -currentScene->cursor[0], -currentScene->cursor[1], -currentScene->cursor[2]);
 	  glutPostRedisplay();
 	}else {
 	  current_state |= LOCK_OBJECT_TRANSLATE;	
 	  currentScene->set_buffer();
 	  glPushMatrix();
-	  glMultMatrixf(currentScene->object->transMat);
+	  glMultMatrixf(currentScene->object->xf);
       
 	  GLdouble modelview[16], projection[16];
 
@@ -586,10 +582,10 @@ namespace subspace {
       }
       else if (key == 'r' && !(current_state & ~LOCK_OBJECT_ROTATE)) {
 	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
-	  GLfloat *transMat = currentScene->context->transMat;
-	  MatxTranslate(transMat, transMat, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
-	  for (int i=0; i < 12; ++i) transMat[i] = (i%5==0);
-	  MatxTranslate(transMat, transMat, -currentScene->cursor[0], -currentScene->cursor[1], -currentScene->cursor[2]);
+	  XForm &xf = currentScene->context->xf;
+	  MatxTranslate(xf, xf, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
+	  for (int i=0; i < 12; ++i) xf[i] = (i%5==0);
+	  MatxTranslate(xf, xf, -currentScene->cursor[0], -currentScene->cursor[1], -currentScene->cursor[2]);
 	  glutPostRedisplay(); return;
 	}
       
@@ -604,7 +600,7 @@ namespace subspace {
 
 	if (object_rotate_switch) {
 	  glPushMatrix();
-	  glMultMatrixf(currentScene->object->transMat);
+	  glMultMatrixf(currentScene->object->xf);
 	  GLdouble modelview[16], projection[16];
 
 	  d2_x = x; d2_y = y;
@@ -617,7 +613,7 @@ namespace subspace {
 
 	} else {
 	  glPushMatrix();
-	  glMultMatrixf(currentScene->object->transMat);
+	  glMultMatrixf(currentScene->object->xf);
 	  GLdouble modelview[16], projection[16], t;
 
 	  d2_x = x; d2_y = y;
@@ -696,6 +692,43 @@ namespace subspace {
       glRotatef(-30, 0, 1, 0);
       glMultMatrixf(CTM);
       glutPostRedisplay();
+    } 
+    else if (key == GLUT_KEY_F1) {
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.1");
+      else currentScene->write("scene.1");
+    }
+    else if (key == GLUT_KEY_F2) {
+      currentScene->write("scene.2");
+    }
+    else if (key == GLUT_KEY_F3) {
+      currentScene->write("scene.3");
+    }
+    else if (key == GLUT_KEY_F4) {
+      currentScene->write("scene.4");
+    }
+    else if (key == GLUT_KEY_F5) {
+      currentScene->write("scene.5");
+    }
+    else if (key == GLUT_KEY_F6) {
+      currentScene->write("scene.6");
+    }
+    else if (key == GLUT_KEY_F7) {
+      currentScene->write("scene.7");
+    }
+    else if (key == GLUT_KEY_F8) {
+      currentScene->write("scene.8");
+    }
+    else if (key == GLUT_KEY_F9) {
+      currentScene->write("scene.9");
+    }
+    else if (key == GLUT_KEY_F10) {
+      currentScene->write("scene.10");
+    }
+    else if (key == GLUT_KEY_F11) {
+      currentScene->write("scene.11");
+    }
+    else if (key == GLUT_KEY_F12) {
+      currentScene->write("scene.12");
     }
   }
 
@@ -732,7 +765,7 @@ namespace subspace {
   void Scene::pmotion(int x, int y) {
     if (current_state & LOCK_OBJECT_TRANSLATE) {
       glPushMatrix();
-      glMultMatrixf(currentScene->object->transMat_buffer);
+      glMultMatrixf(currentScene->object->xf_buf);
 
       GLdouble modelview[16], projection[16], tx, ty, tz;
 
@@ -741,7 +774,7 @@ namespace subspace {
       glPopMatrix();
       gluUnProject(x, viewport[3] - y, depth, modelview, projection, viewport, &tx, &ty, &tz);
       tx -=origin_x; ty-=origin_y; tz-=origin_z;
-      MatxTranslate(currentScene->context->transMat, currentScene->context->transMat_buffer, tx, ty, tz);
+      MatxTranslate(currentScene->context->xf, currentScene->context->xf_buf, tx, ty, tz);
 
       glutPostRedisplay();
     }    
@@ -749,7 +782,7 @@ namespace subspace {
       transform_x = x; transform_y = y;
       if (object_rotate_switch) {
 	glPushMatrix();
-	glMultMatrixf(currentScene->object->transMat_buffer);
+	glMultMatrixf(currentScene->object->xf_buf);
 	GLdouble modelview[16], projection[16],t;
 
 
@@ -767,7 +800,7 @@ namespace subspace {
 	t = 2*SS_PI * std::sqrt(((x-d2_x)*(x-d2_x) + (y-d2_y)*(y-d2_y))/(viewport[2]*viewport[2]+viewport[3]*viewport[3])) ;
 	GLdouble sin,cos;
 	sin = std::sin(t); cos = std::cos(t);
-	MatxRotate(currentScene->context->transMat, currentScene->context->transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
+	MatxRotate(currentScene->context->xf, currentScene->context->xf_buf, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
 
       } else {
 	GLdouble sin, cos; 
@@ -783,7 +816,7 @@ namespace subspace {
       
 	sin = v1_y * v2_x - v1_x * v2_y;
 	cos = (1+1-(v1*v1+v2*v2))/2;
-	MatxRotate(currentScene->context->transMat, currentScene->context->transMat_buffer, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
+	MatxRotate(currentScene->context->xf, currentScene->context->xf_buf, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
 
       }
       
@@ -813,7 +846,7 @@ namespace subspace {
       if (state == GLUT_DOWN) { //&& !(current_state & ~LOCK_VIEW_TRANSLATE)) {
 	if (current_state & LOCK_BACK_BUFFER_SELECT) {
 	  origin_x = x; origin_y = y;
-	} else {
+	} else if (!(current_state & (LOCK_OBJECT_TRANSLATE | LOCK_OBJECT_ROTATE))){
 	  if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) {
 	    origin_x = x; origin_y = y; 
 	    current_state |= LOCK_VIEW_TRANSLATE;
@@ -916,15 +949,20 @@ namespace subspace {
       break;
     case GLUT_WHEEL_UP:
       if (state == GLUT_UP){
-	if (scale * scale_coeff < 6) scale *= scale_coeff;	
-	reshape(currentScene->width, currentScene->height);
+	//if (scale * scale_coeff < 6) scale *= scale_coeff;	
+	glMatrixMode(GL_PROJECTION);
+	glScalef(scale_coeff, scale_coeff, scale_coeff);
+	glMatrixMode(GL_MODELVIEW);
+	currentScene->get_window_world_radio();
 	glutPostRedisplay();      
       }
       break;
     case GLUT_WHEEL_DOWN:
       if (state == GLUT_DOWN){	
-	scale /= scale_coeff;
-	reshape(currentScene->width, currentScene->height);
+	glMatrixMode(GL_PROJECTION);
+	glScalef(1/scale_coeff, 1/scale_coeff, 1/scale_coeff);
+	glMatrixMode(GL_MODELVIEW);
+	currentScene->get_window_world_radio();
 	glutPostRedisplay();      
       }
       break;
@@ -934,7 +972,40 @@ namespace subspace {
 
   }
 
+  void Scene::read(std::string filename) {
+    object->xf.read(filename + ".obj.xf");
 
+    glMatrixMode(GL_PROJECTION);
+    CTM.read(filename + ".prj.xf");
+    glLoadIdentity();
+    glMultMatrixf(CTM);
+
+    glMatrixMode(GL_MODELVIEW);    
+    CTM.read(filename + ".mod.xf");
+    glLoadIdentity();
+    glMultMatrixf(CTM);
+
+    std::cout << "Import from " << filename << std::endl;
+    glutPostRedisplay();
+
+    
+  }
+  void Scene::write(std::string filename) {
+    std::cout << "Press Enter to confirm ... "; char check = getchar();
+    if (check != '\n') {std::cout << "canceled" << std::endl; return;}
+    object->xf.write(filename + ".obj.xf");
+
+    std::string mesh_export = filename + ".export.off";
+    object->mesh->write(mesh_export.c_str());
+
+    glGetFloatv( GL_PROJECTION_MATRIX, CTM);
+    CTM.write(filename + ".prj.xf");
+    glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
+    CTM.write(filename + ".mod.xf");
+    
+    std::cout << "Export to " << filename << std::endl;
+    
+  }
 }
 
 

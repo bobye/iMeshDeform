@@ -13,7 +13,7 @@ namespace subspace {
       color_solid[4*i] = 77; color_solid[4*i+1] = 128; color_solid[4*i+2] = 154; color_solid[4*i+3] = 192;
       color_wire[4*i] = color_wire[4*i+1] = color_wire[4*i+2] = color_wire[4*i+3] = 0;
     }
-    for (int i=0; i< 16; ++i) transMat[i] = (i%5 ==0);
+    xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
 
     unsigned int *iIndex = new unsigned int [vn],
       *iBlack = new unsigned int [vn];    
@@ -107,7 +107,7 @@ namespace subspace {
     vn = obj->mesh->vertices.size();
     //is_vertex_rigid.resize(vn);
 
-    for (int i=0; i< 16; ++i) transMat[i] = (i%5 ==0);
+    xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
     ss_solver = NULL;
   };
 
@@ -123,7 +123,7 @@ namespace subspace {
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);//(NEW) setup our buffers
     glPushMatrix();
     glDisable(GL_LIGHTING);
-    glMultMatrixf(object->transMat);
+    glMultMatrixf(object->xf);
     glBegin(GL_POINTS);
     for (int i=0; i<hn; ++i) {
       glColor4ub(index[4*i], index[4*i+1], index[4*i+2], index[4*i+3]);
@@ -216,7 +216,7 @@ namespace subspace {
   }
 
   /*
-  void HandlerSelect::manipulate_constraint_points(GLfloat *transMat){
+  void HandlerSelect::manipulate_constraint_points(GLfloat *xf){
     int hn = constraint_points.size();
     //    for (int i=0; i<hn; ++i)
     
@@ -234,12 +234,8 @@ namespace subspace {
   void HandlerSelect::update(bool inf) {
     int hn = constraint_points.size();
     for (int i = 0; i < hn; ++i)
-      if(selected[i]) {
-	Point &x = constraint_points_buffer[i], &y = constraint_points[i];
-	y[0] = transMat[12] + transMat[0] * x[0] + transMat[4] * x[1] + transMat[8] * x[2];
-	y[1] = transMat[13] + transMat[1] * x[0] + transMat[5] * x[1] + transMat[9] * x[2];
-	y[2] = transMat[14] + transMat[2] * x[0] + transMat[6] * x[1] + transMat[10]* x[2];
-      }
+      if(selected[i])
+	constraint_points[i] = xf * constraint_points_buffer[i];      
     
     if (ss_solver) ss_solver->update(constraint_points, inf);
   }

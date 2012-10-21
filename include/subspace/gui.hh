@@ -12,7 +12,9 @@ namespace subspace {
     // center point
     Point center;
     // transformer
-    GLfloat transMat[16], transMat_buffer[16];    
+    //GLfloat transMat[16], transMat_buffer[16];    
+    XForm xf, xf_buf;
+
     virtual void destroy();
   };
 
@@ -128,6 +130,10 @@ namespace subspace {
     void bind(Object*);
     void bind(Subspace*);
     void view();
+
+    void read(std::string ); 
+    void write(std::string );
+
   };
 
 
