@@ -972,6 +972,39 @@ namespace subspace {
 
   }
 
+
+  void Scene::dump_image(std::string filename)
+  {
+    printf("Saving image %s... ", filename.c_str());
+    FILE *f = fopen(filename.c_str(), "wb");
+
+    // Read pixels
+    //GLUI_Master.auto_set_viewport();
+    GLint V[4];
+    glGetIntegerv(GL_VIEWPORT, V);
+    GLint width = V[2], height = V[3];
+    char *buf = new char[width*height*3];
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(V[0], V[1], width, height, GL_RGB, GL_UNSIGNED_BYTE, buf);
+
+    // Flip top-to-bottom
+    for (int i = 0; i < height/2; i++) {
+      char *row1 = buf + 3 * width * i;
+      char *row2 = buf + 3 * width * (height - 1 - i);
+      for (int j = 0; j < 3 * width; j++)
+	std::swap(row1[j], row2[j]);
+    }
+
+    // Write out file
+    fprintf(f, "P6\n%d %d\n255\n", width, height);
+    fwrite(buf, width*height*3, 1, f);
+    fclose(f);
+    delete [] buf;
+
+    printf("Done.\n");
+  }
+
+
   void Scene::read(std::string filename) {
     object->xf.read(filename + ".obj.xf");
 
@@ -995,14 +1028,15 @@ namespace subspace {
     if (check != '\n') {std::cout << "canceled" << std::endl; return;}
     object->xf.write(filename + ".obj.xf");
 
-    std::string mesh_export = filename + ".export.off";
+    std::string mesh_export = filename + ".obj.off";
     object->mesh->write(mesh_export.c_str());
 
     glGetFloatv( GL_PROJECTION_MATRIX, CTM);
     CTM.write(filename + ".prj.xf");
     glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
     CTM.write(filename + ".mod.xf");
-    
+
+    dump_image(filename + ".cap.ppm");
     std::cout << "Export to " << filename << std::endl;
     
   }

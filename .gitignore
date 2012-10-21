@@ -1,1 +1,15 @@
+# Backup files
 *~
+
+# Libraries
+*.so
+*.a
+
+# I/O format
+*.off
+*.xf
+*.ppm
+*.id
+
+# Caches
+CMakeCache.txt

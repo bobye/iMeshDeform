@@ -112,6 +112,8 @@ namespace subspace {
 
     void set_buffer();
     void restore_buffer();
+
+    void dump_image(std::string );
   public:
     int width,height;
     Point cursor;
