@@ -6,6 +6,8 @@
 #include <vector>
 #include "geometry.hh"
 
+#define _SS_PI                       (3.141592653589793238)
+
 namespace subspace {
   
   class Subspace {

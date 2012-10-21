@@ -83,8 +83,11 @@ namespace subspace {
 
   static Mat  VS;//sparse matrix to LU
   static Mat  RE;//linearization artifacts regulazier
-#define COEFF_REG_L2      (0.0001)
+#define COEFF_REG_L2      (0.001)
 #define COEFF_REG_RADIO   (0.5)
+#define EPSILON           1E-5
+#define NUM_OF_ITERATION 8
+
 
   static Vec* VS_L, *SL;//solved variational subspace
   static Vec* VS_R, *SR;//row major index for each rotation matrix
@@ -134,8 +137,11 @@ namespace subspace {
     vertices = _SS_MALLOC_SCALAR(vn3);
     //    vertices_f = new float[vn3];
 
-    for (int i=0; i<vn; ++i) totarea += mesh->pointareas[i];
-    avgarea = totarea/vn;
+    int count=0;
+    for (int i=0; i<vn; ++i) 
+      if (!isinf(mesh->pointareas[i]))
+	{ totarea += mesh->pointareas[i]; ++count ;}
+    avgarea = totarea/count;
 #ifdef _SS_SHOW_DEBUG
     printf("Total area estimation: %e\n", totarea);
 #endif
@@ -268,15 +274,24 @@ namespace subspace {
 
       std::vector<int> &faces = mesh->adjacentfaces[i];
       int fn = faces.size();
+      PetscScalar area = mesh->pointareas[i];
+      if (isinf(area) || area < 1E-3 * avgarea) area = 1E-3 * avgarea;
+
       for (int j= 0; j<fn; ++j) {
 	int v0 = mesh->faces[faces[j]][0], v1 = mesh->faces[faces[j]][1], v2 = mesh->faces[faces[j]][2];
 	Vector v01 = mesh->vertices[v0] - mesh->vertices[v1];
 	Vector v12 = mesh->vertices[v1] - mesh->vertices[v2];
 	Vector v20 = mesh->vertices[v2] - mesh->vertices[v0];
-
-	mat_edge_assembly_VS(v0, v1, i, std::fabs(1./std::tan(mesh->cornerangle(2,j)))/avgarea, v01);
-	mat_edge_assembly_VS(v1, v2, i, std::fabs(1./std::tan(mesh->cornerangle(0,j)))/avgarea, v12);
-	mat_edge_assembly_VS(v2, v0, i, std::fabs(1./std::tan(mesh->cornerangle(1,j)))/avgarea, v20);
+	
+	
+	double tan2 = std::tan(_SS_PI/2 - mesh->cornerangle(2,j)); 
+	mat_edge_assembly_VS(v0, v1, i, std::fabs(tan2)/avgarea, v01);
+	
+	double tan0 = std::tan(_SS_PI/2 - mesh->cornerangle(0,j));
+	mat_edge_assembly_VS(v1, v2, i, std::fabs(tan0)/avgarea, v12);
+	
+	double tan1 = std::tan(_SS_PI/2 - mesh->cornerangle(1,j));
+	mat_edge_assembly_VS(v2, v0, i, std::fabs(tan1)/avgarea, v20);
 
       }
 
@@ -290,7 +305,7 @@ namespace subspace {
       vqs[0] += (1-COEFF_REG_RADIO);
       for (int j=1; j<4; ++j) vqs[5*j] += 2*(1-COEFF_REG_RADIO)/3.;
 
-      MULTIPLY(vqs, 16, COEFF_REG_L2 * mesh->pointareas[i]/avgarea)
+      MULTIPLY(vqs, 16, COEFF_REG_L2 * area/avgarea)
       MatSetValues(VS, 4, idq, 4, idq, vqs, ADD_VALUES);
 
     }
@@ -344,9 +359,10 @@ namespace subspace {
     //KSPSetType(ksp, KSPPREONLY);
     KSPSetFromOptions(ksp);
     KSPSetUp(ksp);
-
+    
     for (int i=0; i<ln3; ++i) KSPSolve(ksp, VS_L[i], SL[i]); 
     for (int i=0; i<rn9; ++i) KSPSolve(ksp, VS_R[i], SR[i]); 
+
 
     MatDestroy(&L);
     KSPDestroy(&ksp);
@@ -559,8 +575,9 @@ namespace subspace {
 
   void update_mesh(Mesh *mesh) {
     //update mesh vertices
+    // reduced variable to mesh vertices, often computational expensive
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, vertices, 1);
-    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, vertices, 1);    
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, vertices, 1);
 
 
     for (int i=0, j=0; i<vn; ++i, j+=3)
@@ -568,7 +585,6 @@ namespace subspace {
   }
 
 
-#define NUM_OF_ITERATION 10
   void Subspace::update(std::vector<Point> & constraint_points, bool inf){
     if (ready) {
       for (int i=0, j=0; j<hn; i+=3, ++j) {
@@ -579,12 +595,15 @@ namespace subspace {
       
       int N = inf? 42: NUM_OF_ITERATION;
       //int N=1;
+
       for (int i=0; i<N; ++i) {
 	reduced_linsolve();
 	reduced_rotsolve();
       }
       reduced_linsolve();
+
       update_mesh(mesh); 
+
       //recompute normals
 
       if (inf) { mesh->normals.clear(); mesh->need_normals();}

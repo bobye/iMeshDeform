@@ -1,7 +1,6 @@
 #include "subspace/gui.hh"
 #include <fstream>
 #include <iostream>
-#define SS_PI                       (3.1415926535898)
 
 /*
 #include "sys/time.h"
@@ -707,8 +706,8 @@ namespace subspace {
     else if (current_state & LOCK_VIEW_ROTATE) {
       glLoadIdentity();
       
-      glRotatef(360.0 * (x-origin_x)/width/SS_PI, 0.0, 1.0, 0.0);
-      glRotatef(360.0 * (y-origin_y)/height/SS_PI, 1.0, 0.0, 0.0);
+      glRotatef(360.0 * (x-origin_x)/width/_SS_PI, 0.0, 1.0, 0.0);
+      glRotatef(360.0 * (y-origin_y)/height/_SS_PI, 1.0, 0.0, 0.0);
 
       glMultMatrixf(CTM);	
 
@@ -759,7 +758,7 @@ namespace subspace {
 	t = std::sqrt(axis_x * axis_x + axis_y * axis_y + axis_z * axis_z);
 	axis_x /= t; axis_y /= t; axis_z /= t; //normalize	
 
-	t = 2*SS_PI * std::sqrt(((x-d2_x)*(x-d2_x) + (y-d2_y)*(y-d2_y))/(viewport[2]*viewport[2]+viewport[3]*viewport[3])) ;
+	t = 2*_SS_PI * std::sqrt(((x-d2_x)*(x-d2_x) + (y-d2_y)*(y-d2_y))/(viewport[2]*viewport[2]+viewport[3]*viewport[3])) ;
 	GLdouble sin,cos;
 	sin = std::sin(t); cos = std::cos(t);
 	MatxRotate(currentScene->context->xf, currentScene->context->xf_buf, axis_x, axis_y, axis_z, sin, cos, currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
@@ -1027,7 +1026,10 @@ namespace subspace {
   }
   void Scene::write(std::string filename) {
     std::cout << "Press Enter to confirm ... "; char check = getchar();
-    if (check != '\n') {std::cout << "canceled" << std::endl; return;}
+    if (check != '\n') {
+      std::cout << "canceled" << std::endl; 
+      while (getchar()!='\n');
+      return;}
 
     glGetFloatv( GL_PROJECTION_MATRIX, CTM); 
     CTM.write(filename + ".prj.xf");

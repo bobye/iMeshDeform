@@ -18,7 +18,7 @@ INCLUDE_DIRECTORIES(include ${GLUT_INCLUDE_DIR} ${OPENGL_INCLUDE_DIR} ${PETSC_IN
 #INCLUDE(${CGAL_USE_FILE})
 ADD_DEFINITIONS(${PETSC_DEFINITIONS})
 
-SET(CMAKE_CXX_FLAGS "-g -Wall -Wextra -Wno-parentheses -Wno-unused -Wno-sign-compare -Wno-unknown-pragmas -fopenmp -mkl -pthread")
+SET(CMAKE_CXX_FLAGS "-O2 -Wall -Wextra -Wno-parentheses -Wno-unused -Wno-sign-compare -Wno-unknown-pragmas -mkl -openmp -pthread")
 SET(LIBS ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${PETSC_LIBRARIES} ${TRIMESH2_LIBRARIES})
 
 
