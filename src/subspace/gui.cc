@@ -23,12 +23,13 @@ namespace subspace {
 
   void Geometry::destroy(){}
 
-  Scene* Scene::currentScene;
+  Scene* currentScene;
 
   static GLfloat  win_world_radio;
+  static GLfloat camera_displace;
   static GLdouble origin_x, origin_y, origin_z, depth, d2_x, d2_y,
     axis_x, axis_y, axis_z;
-  static int transform_x=0, transform_y=0, viewport[4];
+  static GLint transform_x=0, transform_y=0, viewport[4], width, height;
   static GLfloat ground_wire = 30;
 
   static bool object_rotate_switch = false,
@@ -48,7 +49,7 @@ namespace subspace {
   std::string spec_info="";
 
 
-  static XForm CTM;//static GLfloat CTM[16];
+  static XForm CTM;//static GLfloat CTM[16];  
 
   const GLfloat light_ambient[] = { .4, .4, .4, 1.0 };
   const GLfloat light_diffuse[] = { .8, .8, .8, 1.0 };
@@ -122,7 +123,8 @@ namespace subspace {
 
 
   Scene::Scene(int argc, char** argv) 
-    :width(800), height(800) {
+  {
+    width = height = 800;
     currentScene = this; //static member need definition
 
     glutInit(&argc, argv);
@@ -209,7 +211,7 @@ namespace subspace {
 
   }
 
-  void Scene::display(){
+  void display(){
 
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);//(NEW) setup our buffers
 
@@ -306,7 +308,7 @@ namespace subspace {
   }
 
 
-  void Scene::get_window_world_radio() {
+  void get_window_world_radio() {
     GLdouble corner1[3], corner2[3];
     GLdouble modelview[16], projection[16];
 
@@ -314,7 +316,7 @@ namespace subspace {
     glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
     glGetIntegerv( GL_VIEWPORT, viewport );
 
-    gluProject( cursor[0], cursor[1], cursor[2], modelview, projection, viewport, &corner1[0], &corner1[1], &depth);
+    gluProject( currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2], modelview, projection, viewport, &corner1[0], &corner1[1], &depth);
 
     gluUnProject( viewport[0], viewport[1], depth, modelview, 
 		  projection, viewport, &corner1[0], &corner1[1], &corner1[2]);
@@ -329,48 +331,8 @@ namespace subspace {
     win_world_radio =std::sqrt((vect_world[0] * vect_world[0] + vect_world[1] * vect_world[1] + vect_world[2] * vect_world[2])  / (width * width + height * height));
   }
 
-  void Scene::bind(Object* obj) {
-    context = obj; object = obj; 
-    vertsel = new VertSelect(obj); 
-    currentScene->handsel = new HandlerSelect(obj);
 
-    cursor = context->center;
-    
-    glClearColor(0, 0, 0, 0.0);
-    glClearDepth(1.0);
-
-
-    glViewport( 0, 0, width, height );
-
-
-
-    add_lights();
-
-    /*
-    glNewList(object->LIST_NAME, GL_COMPILE_AND_EXECUTE);
-    object->register_mesh();
-    object->draw();
-    glEndList();
-    */
-    reshape(width, height); keyboard('.',0,0);
-    ground_wire = 5 * ( (int) (100000 * currentScene->height * win_world_radio) / 50) * 0.00001;    
-
-    glutReshapeFunc(reshape);
-    glutKeyboardFunc(keyboard);
-    glutSpecialFunc(skeyboard);
-    glutMotionFunc(motion);
-    glutPassiveMotionFunc(pmotion);
-    glutMouseFunc(mouse);
-    glutDisplayFunc(display);
-
-  }
-
-  void Scene::bind(Subspace* ss) {
-    ss_solver = ss;
-    //    ss_solver->init(object->mesh);
-  }
-
-  void Scene::add_lights(){
+  void add_lights(){
     /*
       light_position0[0] = coordinate_max_x * perfect_factor;
       light_position0[1] = coordinate_max_y * perfect_factor;
@@ -411,9 +373,9 @@ namespace subspace {
   }
 
   
-  void Scene::reshape(GLsizei w, GLsizei h)
+  void reshape(GLsizei w, GLsizei h)
   {
-    currentScene-> width = w; currentScene->height =h;
+    width = w; height =h;
 
 
 
@@ -451,12 +413,12 @@ namespace subspace {
 	*/
 
     // glTranslated(-center_x, -center_y, -center_z - 100 * length_z);
-    glTranslated(0, 0 , - 3 * currentScene->object->size);
+    glTranslated(0, 0 , - camera_displace);
 
     glMatrixMode(GL_MODELVIEW);
     //keyboard('.',0,0);
     //gluLookAt( -50 * length_z , 70 * length_z ,  70 * length_z, 0, 0,  - 100 * length_z , 0, 1, 0);
-    currentScene->get_window_world_radio();
+    get_window_world_radio();
   }
 
   void Scene::set_buffer() {
@@ -475,11 +437,11 @@ namespace subspace {
       currentScene->handsel->restore_buffer();
   }
 
-  void Scene::keyboard(unsigned char key, int x, int y) {
+  void keyboard(unsigned char key, int x, int y) {
     if (key=='q'||key=='Q') exit(0); //quit
     else if (key=='o'||key=='O') { // switch between orth and perspective
       orthOrNot = !orthOrNot;
-      reshape(currentScene->width, currentScene->height);
+      reshape(width, height);
       glutPostRedisplay();
     }
     else if (key=='w' || key == 'W') { // render object as wire or solid
@@ -664,7 +626,7 @@ namespace subspace {
   }
 
 
-  void Scene::skeyboard(int key, int x, int y) {
+  void skeyboard(int key, int x, int y) {
     if (key == GLUT_KEY_UP) {
       glGetFloatv(GL_MODELVIEW_MATRIX, CTM);
       glLoadIdentity();
@@ -733,7 +695,7 @@ namespace subspace {
   }
 
 
-  void Scene::motion(int x, int y) {    
+  void motion(int x, int y) {    
     if (current_state & LOCK_VIEW_TRANSLATE) {
       
       glLoadIdentity();
@@ -745,8 +707,8 @@ namespace subspace {
     else if (current_state & LOCK_VIEW_ROTATE) {
       glLoadIdentity();
       
-      glRotatef(360.0 * (x-origin_x)/currentScene->width/SS_PI, 0.0, 1.0, 0.0);
-      glRotatef(360.0 * (y-origin_y)/currentScene->height/SS_PI, 1.0, 0.0, 0.0);
+      glRotatef(360.0 * (x-origin_x)/width/SS_PI, 0.0, 1.0, 0.0);
+      glRotatef(360.0 * (y-origin_y)/height/SS_PI, 1.0, 0.0, 0.0);
 
       glMultMatrixf(CTM);	
 
@@ -762,7 +724,7 @@ namespace subspace {
 
 
 
-  void Scene::pmotion(int x, int y) {
+  void pmotion(int x, int y) {
     if (current_state & LOCK_OBJECT_TRANSLATE) {
       glPushMatrix();
       glMultMatrixf(currentScene->object->xf_buf);
@@ -840,7 +802,7 @@ namespace subspace {
 
 #define scale_coeff       (1.1)
 
-  void Scene::mouse(int button, int state, int x, int y) {
+  void mouse(int button, int state, int x, int y) {
     switch(button) {
     case GLUT_MIDDLE_BUTTON:
       if (state == GLUT_DOWN) { //&& !(current_state & ~LOCK_VIEW_TRANSLATE)) {
@@ -953,7 +915,7 @@ namespace subspace {
 	glMatrixMode(GL_PROJECTION);
 	glScalef(scale_coeff, scale_coeff, scale_coeff);
 	glMatrixMode(GL_MODELVIEW);
-	currentScene->get_window_world_radio();
+	get_window_world_radio();
 	glutPostRedisplay();      
       }
       break;
@@ -962,7 +924,7 @@ namespace subspace {
 	glMatrixMode(GL_PROJECTION);
 	glScalef(1/scale_coeff, 1/scale_coeff, 1/scale_coeff);
 	glMatrixMode(GL_MODELVIEW);
-	currentScene->get_window_world_radio();
+	get_window_world_radio();
 	glutPostRedisplay();      
       }
       break;
@@ -972,8 +934,48 @@ namespace subspace {
 
   }
 
+  void Scene::bind(Object* obj) {
+    context = obj; object = obj; 
+    vertsel = new VertSelect(obj); 
+    currentScene->handsel = new HandlerSelect(obj);
 
-  void Scene::dump_image(std::string filename)
+    cursor = context->center;
+    
+    glClearColor(0, 0, 0, 0.0);
+    glClearDepth(1.0);
+
+
+    glViewport( 0, 0, width, height );
+
+
+
+    add_lights();
+    camera_displace = 3 * object->size;
+    /*
+    glNewList(object->LIST_NAME, GL_COMPILE_AND_EXECUTE);
+    object->register_mesh();
+    object->draw();
+    glEndList();
+    */
+    reshape(width, height); keyboard('.',0,0);
+    ground_wire = 5 * ( (int) (100000 * height * win_world_radio) / 50) * 0.00001;    
+
+    glutReshapeFunc(reshape);
+    glutKeyboardFunc(keyboard);
+    glutSpecialFunc(skeyboard);
+    glutMotionFunc(motion);
+    glutPassiveMotionFunc(pmotion);
+    glutMouseFunc(mouse);
+    glutDisplayFunc(display);
+
+  }
+
+  void Scene::bind(Subspace* ss) {
+    ss_solver = ss;
+    //    ss_solver->init(object->mesh);
+  }
+
+  void dump_image(std::string filename)
   {
     printf("Saving image %s... ", filename.c_str());
     FILE *f = fopen(filename.c_str(), "wb");
@@ -1026,15 +1028,22 @@ namespace subspace {
   void Scene::write(std::string filename) {
     std::cout << "Press Enter to confirm ... "; char check = getchar();
     if (check != '\n') {std::cout << "canceled" << std::endl; return;}
-    object->xf.write(filename + ".obj.xf");
+
+    glGetFloatv( GL_PROJECTION_MATRIX, CTM); 
+    CTM.write(filename + ".prj.xf");
+
+    XForm xf_rtsc; // XForm to be loaded by rtsc NPR rendering
+
+    glGetFloatv( GL_MODELVIEW_MATRIX, CTM); xf_rtsc = xf_rtsc * CTM;
+    CTM.write(filename + ".mod.xf");   
+
+    object->xf.write(filename + ".obj.xf"); xf_rtsc = xf_rtsc * object->xf;
 
     std::string mesh_export = filename + ".obj.off";
     object->mesh->write(mesh_export.c_str());
-
-    glGetFloatv( GL_PROJECTION_MATRIX, CTM);
-    CTM.write(filename + ".prj.xf");
-    glGetFloatv( GL_MODELVIEW_MATRIX, CTM);
-    CTM.write(filename + ".mod.xf");
+    
+    xf_rtsc[14] -= camera_displace;
+    xf_rtsc.write(filename + ".obj.rtsc.xf"); 
 
     dump_image(filename + ".cap.ppm");
     std::cout << "Export to " << filename << std::endl;

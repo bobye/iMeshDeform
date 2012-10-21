@@ -100,28 +100,23 @@ namespace subspace {
   };
 
   class Scene {
-  protected:
+  public:
     Object *object;
     VertSelect *vertsel;
     HandlerSelect *handsel;
     Geometry *context;//default set to object
 
     Subspace *ss_solver;//subspace solver
-    void get_window_world_radio();
-    void add_lights();
 
     void set_buffer();
     void restore_buffer();
 
-    void dump_image(std::string );
-  public:
-    int width,height;
     Point cursor;
     // transformer
-    static Scene * currentScene;
+
     Scene(int , char**);
     
-
+    /*
     static void display();
     static void reshape(int, int);
     static void keyboard(unsigned char, int, int);
@@ -129,6 +124,7 @@ namespace subspace {
     static void motion(int, int);
     static void pmotion(int, int);
     static void mouse(int, int, int, int);
+    */
     void bind(Object*);
     void bind(Subspace*);
     void view();
