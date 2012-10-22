@@ -85,9 +85,12 @@ namespace subspace {
   static Mat  RE;//linearization artifacts regulazier
 #define COEFF_REG_L2      (0.001)
 #define COEFF_REG_RADIO   (0.5)
-#define EPSILON           1E-5
-#define NUM_OF_ITERATION 8
+#define EPSILON           (1E-5)
+#define NUM_OF_ITERATION  (8)
 
+#ifdef _SS_USE_CONFORMAL
+#define MAX_CFM_STRECH    (1.5)
+#endif 
 
   static Vec* VS_L, *SL;//solved variational subspace
   static Vec* VS_R, *SR;//row major index for each rotation matrix
@@ -100,7 +103,12 @@ namespace subspace {
   */
   const bool switch_dump = false;
 
-  static _SS_SCALAR *LVSR, *MVSR; //reduced model for rotational fitting
+  static _SS_SCALAR *LVSR, *MVSR;
+#ifdef _SS_USE_CONFORMAL
+  static _SS_SCALAR *NR, *CR;
+#endif 
+
+  static const _SS_SCALAR CFM[9]={1,1,1,1,1,1,1,1,1}; //reduced model for conformal fitting
 
   static _SS_SCALAR *Lin, *Rot, *Rot_b; //reduced variable, 3x3 rotation matrices are of row major
   static _SS_SCALAR GRot[9], GRot_b[9], GRot_bb[9]; // global rotation estimation
@@ -234,7 +242,9 @@ namespace subspace {
       MULTIPLY(vs, 4, weight)
       VecSetValues(VS_R[rotational_proxies[k]+rn*(i+6)], 4, idq, vs, ADD_VALUES);
     }
-
+#ifdef _SS_USE_CONFORMAL
+    NR[rotational_proxies[k]] += weight *(v DOT v);
+#endif
     return ierr;   
   }
 
@@ -266,7 +276,10 @@ namespace subspace {
     for (int i=0; i< rn9; ++i) {
       VecSet(VS_R[i], 0.);
     }
-
+#ifdef _SS_USE_CONFORMAL
+    NR = _SS_MALLOC_SCALAR(rn); std::fill(NR, NR+rn, 0);
+    CR = _SS_MALLOC_SCALAR(rn); std::fill(CR, CR+rn, 1);
+#endif
     // assembly VS
 
     for (int i = 0; i<vn; ++i) {
@@ -483,6 +496,9 @@ namespace subspace {
     _SS_FREE(SR_V);
     _SS_FREE(LVS); _SS_FREE(MVS);
     _SS_FREE(LVSR); _SS_FREE(MVSR);
+#ifdef _SS_USE_CONFORMAL
+    _SS_FREE(NR); _SS_FREE(CR);
+#endif
 
     _SS_FREE(Rot); _SS_FREE(Rot_b); //_SS_FREE(RotNorm);
 
@@ -551,7 +567,15 @@ namespace subspace {
   void reduced_rotsolve() {//solve reduced rotational variables via SVD of gradient
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, rn9, 1, MVSR, rn9, Rot, 1, 0, Rot_b, 1);
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, rn9, ln3, 1, LVSR, rn9, Lin, 1, 1, Rot_b, 1);
-
+#ifdef _SS_USE_CONFORMAL
+    for (int i=0; i<rn; ++i) {
+      CR[i] = _SS_CBLAS_FUNC(dot)(9, Rot_b+i, rn, Rot+i, rn) / (CR[i] * NR[i]);
+    }
+    for (int i=0; i<rn; ++i) 
+      if (CR[i]>MAX_CFM_STRECH) CR[i] = MAX_CFM_STRECH;
+      else if (CR[i]<1./MAX_CFM_STRECH) CR[i] = 1./MAX_CFM_STRECH;
+    //for (int i=0; i<rn; ++i) {printf("%f ", CR[i]);}
+#endif
     //apply global rotations
     for (int i=0; i<9; ++i) 
       {_SS_SCALAR sum=0; for (int j=i*rn; j< i*rn+rn; ++j) sum += Rot_b[j]; GRot_b[i] = sum;}
@@ -567,8 +591,15 @@ namespace subspace {
 
 
     _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans, 3*rn, 3, 3, 1, Rot_b, 3*rn, GRot_b, 3, 0, Rot, 3*rn);
-
+    
     proj_rot(Rot, rn);
+
+#ifdef _SS_USE_CONFORMAL
+    for (int j=0; j<9; ++j) {
+      _SS_SCALAR *ptr=Rot + j*rn;
+      for (int i=0; i<rn; ++i) ptr[i]*=CR[i];
+    }
+#endif
     //    for (int i=0; i<9; ++i) printf("%.3f ", Rot[10+i*rn]); printf("\n");
 
   }
