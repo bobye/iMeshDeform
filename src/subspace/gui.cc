@@ -20,8 +20,6 @@ namespace subspace {
   static unsigned frame =0;
   char s_fps[10];
 
-  void Geometry::destroy(){}
-
   Scene* currentScene;
 
   static GLfloat  win_world_radio;
@@ -436,8 +434,13 @@ namespace subspace {
       currentScene->handsel->restore_buffer();
   }
 
+
+  static const int ctrl = 1 - 'a';
   void keyboard(unsigned char key, int x, int y) {
     if (key=='q'||key=='Q') exit(0); //quit
+    else if (key=='s' + ctrl) {
+      currentScene->ss_solver->write("scene.ss");
+    }
     else if (key=='o'||key=='O') { // switch between orth and perspective
       orthOrNot = !orthOrNot;
       reshape(width, height);
@@ -486,9 +489,6 @@ namespace subspace {
 	current_state = LOCK_MODE_SELECT;
 	wireOrNot = true;
 	currentScene->context = currentScene->vertsel;
-	if (currentScene->handsel) {
-	  currentScene->handsel->destroy(); 
-	}
 	glEnableClientState(GL_COLOR_ARRAY);
       }
       glutPostRedisplay();

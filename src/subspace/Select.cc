@@ -94,13 +94,13 @@ namespace subspace {
 	color_wire[4*i] = 0; color_wire[4*i+1] = 0; color_wire[4*i+2] = 0; color_wire[4*i+3] = 0;
       }    
   }
-  void VertSelect::destroy() {
+  VertSelect::~VertSelect() {
     delete [] selected;
     delete [] black;
     delete [] index;
     delete [] color_solid;
     delete [] color_wire;
-  }
+  };
 
   HandlerSelect::HandlerSelect(Object * obj) {
     object = obj; 
@@ -282,7 +282,4 @@ namespace subspace {
       return  (float) (1./(float) count) * pbuf;
     else return object->center;
   }
-  void HandlerSelect::destroy() {
-  }
-
 }

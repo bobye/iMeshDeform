@@ -82,7 +82,5 @@ namespace subspace {
     glEnable(GL_LIGHTING);
   }
   
-  void Object::destroy(){
-  }
 }
 

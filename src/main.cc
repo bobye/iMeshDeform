@@ -3,6 +3,10 @@
 
 using namespace trimesh;
 using namespace subspace;
+
+
+#define UI_DEBUG
+
 int main(int argc, char *argv[])
 {
   // read mesh
@@ -26,16 +30,21 @@ int main(int argc, char *argv[])
   ss_solver.init(mesh);
   ss_solver.load_linear_proxies_vg(group_ids1);
   ss_solver.load_rotational_proxies(group_ids2);
-  ss_solver.solve();
 
+
+#ifndef UI_DEBUG
+  ss_solver.solve();
+#else
+  ss_solver.read("scene.ss");
+#endif
   
   Scene scene(argc, argv);
 
   Object object = Object(mesh);
   object.register_mesh();
   scene.bind(&object);
-
   scene.bind(&ss_solver); // bind mesh to subspace solver
+
 
   scene.view();
   return 0;

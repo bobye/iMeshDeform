@@ -14,8 +14,6 @@ namespace subspace {
     // transformer
     //GLfloat transMat[16], transMat_buffer[16];    
     XForm xf, xf_buf;
-
-    virtual void destroy();
   };
 
 
@@ -33,8 +31,6 @@ namespace subspace {
     void register_mesh();
     void back_draw();
     void draw();
-    virtual void destroy();
-
     //    friend class Subspace;
   };
 
@@ -54,9 +50,9 @@ namespace subspace {
     GLubyte *color_solid, *color_wire;
 
     VertSelect(Object*);
+    ~VertSelect();
     void register_selected(int,int,int,int,bool, bool onlyone=false);
     void toggle_selected();
-    void destroy();
   };
 
   class HandlerSelect : public Geometry {
@@ -95,8 +91,6 @@ namespace subspace {
     void unset_solver();
 
     Point set_focus();
-
-    void destroy();
   };
 
   class Scene {

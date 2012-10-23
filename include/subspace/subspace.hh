@@ -13,9 +13,16 @@ namespace subspace {
   
   class Subspace {
   protected:
-    Mesh* mesh;       
+    // mesh type data pointer
+    Mesh* mesh;
+
+    // assembly large sparse matrix for solving subspaces
     void assembly();
     
+    // allocate subspace internal datas
+    void allocate();
+
+    // switch locker between different sets of constraints
     bool ready;
   public:
     //void add_rigid_constraint(int );
@@ -24,15 +31,15 @@ namespace subspace {
     ~Subspace();
     void init(Mesh *);
     
-
+    // offline routines
     // vg: vertices group
     void load_linear_proxies_vg(std::vector<int> &);
-
     void load_rotational_proxies(std::vector<int> &);
 
-    void solve();
+    void solve();//solve variational subspace
 
 
+    // online routines
     // precompute LU and start updating thread
     void prepare(std::vector< std::vector<float> > &, std::vector<Point> &);
 
@@ -41,8 +48,14 @@ namespace subspace {
 
     // terminate online updating thread
     void terminate();
-    void toggle_dump();
+
+    // io routines
+    // export and import solved subspace
+    void read(std::string );
+    void write(std::string );
+
 #ifdef _SS_SHOW_DEBUG
+    // display debug info
     void show_debug();
 #endif
   };

@@ -155,7 +155,7 @@ namespace subspace {
 #endif
   }
 
-
+  
 
   void Subspace::load_linear_proxies_vg(std::vector<int> &group_ids) {
     assert(vn == group_ids.size());
@@ -184,6 +184,31 @@ namespace subspace {
       if (rn <= (rotational_proxies[i] = group_ids[i])) rn = group_ids[i]+1;
     rn9 = 9*rn;
     
+  }
+
+
+  void Subspace::allocate() {
+
+#ifdef _SS_USE_CONFORMAL
+    if (!NR) NR = _SS_MALLOC_SCALAR(rn); 
+    if (!CR) CR = _SS_MALLOC_SCALAR(rn);
+#endif
+
+    if (!SL_V) SL_V = _SS_MALLOC_SCALAR(vn3*ln3); 
+    if (!SR_V) SR_V = _SS_MALLOC_SCALAR(vn3*rn9);
+    if (!LVS) LVS = _SS_MALLOC_SCALAR (ln3*ln3); 
+    if (!MVS) MVS = _SS_MALLOC_SCALAR(ln3*rn9);
+    if (!LVSR) LVSR = _SS_MALLOC_SCALAR (rn9*ln3); 
+    if (!MVSR) MVSR = _SS_MALLOC_SCALAR(rn9*rn9);
+    if (!Rot) Rot = _SS_MALLOC_SCALAR(rn9); 
+    if (!Rot_b) Rot_b = _SS_MALLOC_SCALAR(rn9); //RotNorm = _SS_MALLOC_SCALAR(2*rn);
+
+    std::fill(Rot, Rot+rn9, 0);
+    for (int i=0; i<rn; ++i) Rot[i] = Rot[i+4*rn] = Rot[i+8*rn] = 1.;
+    init_svd(Rot, rn, NUM_OF_SVD_THREAD);
+
+    GRot[0]=GRot[4]=GRot[8]=1;
+    std::fill(CR, CR+rn, 1);    std::fill(NR, NR+rn, 0);    
   }
 
 #define MULTIPLY(v,n,w) cblas_dscal(n, w, v, 1);
@@ -276,10 +301,6 @@ namespace subspace {
     for (int i=0; i< rn9; ++i) {
       VecSet(VS_R[i], 0.);
     }
-#ifdef _SS_USE_CONFORMAL
-    NR = _SS_MALLOC_SCALAR(rn); std::fill(NR, NR+rn, 0);
-    CR = _SS_MALLOC_SCALAR(rn); std::fill(CR, CR+rn, 1);
-#endif
     // assembly VS
 
     for (int i = 0; i<vn; ++i) {
@@ -354,6 +375,7 @@ namespace subspace {
     clock_start("Solving reduced model");
     /**************************************************/
     // assembly matrix
+    allocate();
     assembly();
     //    MatAXPY(VS, COEFF_REG, RE, DIFFERENT_NONZERO_PATTERN);
     /**************************************************/
@@ -382,7 +404,6 @@ namespace subspace {
     /**************************************************/
     // copy subspace solution data to global array
 
-    SL_V = _SS_MALLOC_SCALAR(vn3*ln3); SR_V = _SS_MALLOC_SCALAR(vn3*rn9);
     for (int i=0; i<ln3; ++i) {
       PetscScalar *buffer;
       VecGetArray(SL[i], &buffer);
@@ -396,8 +417,6 @@ namespace subspace {
 
     /**************************************************/
     // precompute online dense linear system (with/without dump)
-    LVS = _SS_MALLOC_SCALAR (ln3*ln3); MVS = _SS_MALLOC_SCALAR(ln3*rn9);
-
     PetscInt *indices = new PetscInt[ln3];
     PetscScalar *zeros = new PetscScalar[ln3]; std::fill(zeros, zeros + ln3, 0.);
     for (int i=0; i<ln3; ++i) indices[i] = 7*vn + i;
@@ -438,7 +457,6 @@ namespace subspace {
 
     /**************************************************/
     // precompute rotational fitting system
-    LVSR = _SS_MALLOC_SCALAR (rn9*ln3); MVSR = _SS_MALLOC_SCALAR(rn9*rn9);
 
     indices = new PetscInt[4*vn];
     zeros = new PetscScalar[4*vn]; std::fill(zeros, zeros + 4*vn, 0.);
@@ -471,14 +489,13 @@ namespace subspace {
       }
     }
 
-    Rot = _SS_MALLOC_SCALAR(rn9); Rot_b = _SS_MALLOC_SCALAR(rn9); //RotNorm = _SS_MALLOC_SCALAR(2*rn);
 
-    std::fill(Rot, Rot+rn9, 0);
-    for (int i=0; i<rn; ++i) Rot[i] = Rot[i+4*rn] = Rot[i+8*rn] = 1.;
-    init_svd(Rot, rn, NUM_OF_SVD_THREAD);
 
-    GRot[0]=GRot[4]=GRot[8]=1;
+    MatDestroy(&VS);
+    for (int i=0; i<ln3; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
+    for (int i=0; i<rn9; ++i) VecDestroy(&VS_R[i]); delete [] VS_R;
 
+    PetscFinalize();
 
     clock_end();
     std::cout << "  linear Proxies: " << ln << "; rotational Proxies: " << rn << std::endl;
@@ -488,10 +505,6 @@ namespace subspace {
   Subspace::~Subspace() {        
     _SS_FREE(linear_proxies);
     
-    MatDestroy(&VS);
-    for (int i=0; i<ln3; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
-    for (int i=0; i<rn9; ++i) VecDestroy(&VS_R[i]); delete [] VS_R;
-
     _SS_FREE(SL_V); 
     _SS_FREE(SR_V);
     _SS_FREE(LVS); _SS_FREE(MVS);
@@ -504,7 +517,6 @@ namespace subspace {
 
     _SS_FREE(vertices);
     //delete [] vertices_f;
-    PetscFinalize();
   }
 
   void Subspace::prepare(std::vector< std::vector<float> > & constraints,
@@ -549,7 +561,6 @@ namespace subspace {
     Lin  = _SS_MALLOC_SCALAR(nsys);
 
     _SS_FREE(constraints_matrix); _SS_FREE(one);
-    
     update(constraint_points, true);
     clock_end();
   }
@@ -646,6 +657,67 @@ namespace subspace {
 
     _SS_FREE(RHS_hp); _SS_FREE(Lin);
     ready = false;
+  }
+
+  void Subspace::read(std::string ifilename) {
+    std::cout << "Import subspace data from " << ifilename << std::endl;
+    allocate();
+    std::ifstream binfid(ifilename.c_str(), std::ios::in|std::ios::binary);
+    // read sizes
+    binfid.read((char*) &ln,   sizeof(int));
+    binfid.read((char*) &ln3,  sizeof(int));
+    binfid.read((char*) &rn,   sizeof(int));
+    binfid.read((char*) &rn9,  sizeof(int));
+    binfid.read((char*) &hn,   sizeof(int));
+    binfid.read((char*) &hn3,  sizeof(int));
+
+    // read reduced variable to vertices mapping
+    binfid.read((char*) SL_V,  sizeof(_SS_SCALAR) * vn3 * ln3);
+    binfid.read((char*) SR_V,  sizeof(_SS_SCALAR) * vn3 * rn9);
+    
+    // read reduced system : linear variables
+    binfid.read((char*) LVS, sizeof(_SS_SCALAR) * ln3 * ln3);
+    binfid.read((char*) MVS, sizeof(_SS_SCALAR) * ln3 * rn9);
+    // read reduced system : rotational variables
+    binfid.read((char*) LVSR, sizeof(_SS_SCALAR) * rn9 * ln3);
+    binfid.read((char*) MVSR, sizeof(_SS_SCALAR) * rn9 * rn9);
+#ifdef _SS_USE_CONFORMAL
+    // read reduced system : scaling factors
+    binfid.read((char*) NR, sizeof(_SS_SCALAR) * rn);
+#endif
+
+    binfid.close();
+
+  }
+  
+  void Subspace::write(std::string ofilename) {
+    std::cout << "Export subspace data to " << ofilename << std::endl;
+    std::ofstream binfid(ofilename.c_str(), std::ios::out|std::ios::binary);
+    // write sizes
+    binfid.write((char*) &ln,   sizeof(int));
+    binfid.write((char*) &ln3,  sizeof(int));
+    binfid.write((char*) &rn,   sizeof(int));
+    binfid.write((char*) &rn9,  sizeof(int));
+    binfid.write((char*) &hn,   sizeof(int));
+    binfid.write((char*) &hn3,  sizeof(int));
+
+    // write reduced variable and full mapping
+    binfid.write((char*) SL_V,  sizeof(_SS_SCALAR) * vn3 * ln3);
+    binfid.write((char*) SR_V,  sizeof(_SS_SCALAR) * vn3 * rn9);
+    
+    // write reduced system : linear variables
+    binfid.write((char*) LVS, sizeof(_SS_SCALAR) * ln3 * ln3);
+    binfid.write((char*) MVS, sizeof(_SS_SCALAR) * ln3 * rn9);
+    // write reduced system : rotational variables
+    binfid.write((char*) LVSR, sizeof(_SS_SCALAR) * rn9 * ln3);
+    binfid.write((char*) MVSR, sizeof(_SS_SCALAR) * rn9 * rn9);
+    // write reduced system : global coordinate rotation
+#ifdef _SS_USE_CONFORMAL
+    // write reduced system : scaling factors
+    binfid.write((char*) NR, sizeof(_SS_SCALAR) * rn);
+#endif
+
+    binfid.close();
   }
 
 #ifdef _SS_SHOW_DEBUG
