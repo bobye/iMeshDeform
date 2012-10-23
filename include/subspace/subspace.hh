@@ -1,7 +1,11 @@
 #ifndef _SUBSPACE_H_
 #define _SUBSPACE_H_
 
-#define _SS_USE_CONFORMAL
+//#define _SS_USE_CONFORMAL
+#ifdef _SS_USE_CONFORMAL
+#define MAX_CFM_STRECH    (1.5)
+#endif 
+
 #define _SS_SHOW_DEBUG
 
 #include <vector>

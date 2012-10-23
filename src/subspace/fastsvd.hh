@@ -225,7 +225,7 @@ inline void init_svd(_SS_SCALAR* const A11,
   size = size_t;
   number_of_threads = number_of_threads_t;
 
-  printf("Using %d threads\n",number_of_threads);
+  //printf("Using %d threads\n",number_of_threads);
   pthread_queue=new PhysBAM::PTHREAD_QUEUE(number_of_threads);  
 
     a11=new float[size];

@@ -24,8 +24,9 @@
 #define _SS_LAPACKE_FUNC(x) LAPACKE_s ## x
 #endif
 
-#define _SS_MALLOC_SCALAR(x)       (_SS_SCALAR *) mkl_malloc( (x) *sizeof(_SS_SCALAR), 64)
-#define _SS_MALLOC_INT(x)       (int *) mkl_malloc( (x) *sizeof(int), 64)
+// MKL is for floating-point op by 16-byte boundary ?
+#define _SS_MALLOC_SCALAR(x)       (_SS_SCALAR *) mkl_malloc( (x) *sizeof(_SS_SCALAR), 16) 
+#define _SS_MALLOC_INT(x)       (int *) mkl_malloc( (x) *sizeof(int), 16)
 #define _SS_FREE(x)         mkl_free(x)
 
 struct timespec start, end;
@@ -51,7 +52,7 @@ struct timespec start, end;
 #define _SS_PROFILE(x) x
 #endif
 
-#define NUM_OF_SVD_THREAD 3 // parallel 3x3 svd
+#define NUM_OF_SVD_THREAD 4 // parallel 3x3 svd
 #include "fastsvd.hh"
 
 inline void apply_rot(float * const y, const _SS_SCALAR *x, const _SS_SCALAR *M, const char Order) {// M in row major
@@ -87,10 +88,6 @@ namespace subspace {
 #define COEFF_REG_RADIO   (0.5)
 #define EPSILON           (1E-5)
 #define NUM_OF_ITERATION  (8)
-
-#ifdef _SS_USE_CONFORMAL
-#define MAX_CFM_STRECH    (1.5)
-#endif 
 
   static Vec* VS_L, *SL;//solved variational subspace
   static Vec* VS_R, *SR;//row major index for each rotation matrix
@@ -208,7 +205,9 @@ namespace subspace {
     init_svd(Rot, rn, NUM_OF_SVD_THREAD);
 
     GRot[0]=GRot[4]=GRot[8]=1;
+#ifdef _SS_USE_CONFORMAL
     std::fill(CR, CR+rn, 1);    std::fill(NR, NR+rn, 0);    
+#endif
   }
 
 #define MULTIPLY(v,n,w) cblas_dscal(n, w, v, 1);
@@ -618,9 +617,10 @@ namespace subspace {
   void update_mesh(Mesh *mesh) {
     //update mesh vertices
     // reduced variable to mesh vertices, often computational expensive
+    //    _SS_PROFILE(
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, vertices, 1);
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, vertices, 1);
-
+    //		)
 
     for (int i=0, j=0; i<vn; ++i, j+=3)
       apply_rot(mesh->vertices[i], &vertices[j], GRot, 'C');
