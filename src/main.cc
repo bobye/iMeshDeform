@@ -25,17 +25,17 @@ int main(int argc, char *argv[])
   if (!fid) exit(1); 
   for (int i=0; i<vn; ++i) fid >> group_ids2[i];
   fid.close();  
-
+  /*
   Subspace ss_solver = Subspace(argc,argv);
   ss_solver.init(mesh);
   ss_solver.load_linear_proxies_vg(group_ids1);
   ss_solver.load_rotational_proxies(group_ids2);
-
+  */
 
 #ifndef UI_DEBUG
-  ss_solver.solve();
+  //  ss_solver.solve();
 #else
-  ss_solver.read("scene.ss");
+  //  ss_solver.read("scene.ss");
 #endif
   
   Scene scene(argc, argv);
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
   Object object = Object(mesh);
   object.register_mesh();
   scene.bind(&object);
-  scene.bind(&ss_solver); // bind mesh to subspace solver
+  //  scene.bind(&ss_solver); // bind mesh to subspace solver
 
 
   scene.view();

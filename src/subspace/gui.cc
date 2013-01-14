@@ -439,7 +439,7 @@ namespace subspace {
   void keyboard(unsigned char key, int x, int y) {
     if (key=='q'||key=='Q') exit(0); //quit
     else if (key=='s' + ctrl) {
-      currentScene->ss_solver->write("scene.ss");
+      //currentScene->ss_solver->write("scene.ss");
     }
     else if (key=='o'||key=='O') { // switch between orth and perspective
       orthOrNot = !orthOrNot;
@@ -502,7 +502,7 @@ namespace subspace {
       }
 
       if (key == 'P') {
-	currentScene->handsel->set_solver(currentScene->ss_solver);
+	//currentScene->handsel->set_solver(currentScene->ss_solver);
 	glutPostRedisplay();
       } else if (key == 'S') {
 	currentScene->cursor = currentScene->handsel->set_focus();
@@ -511,7 +511,7 @@ namespace subspace {
       }
 #ifdef _SS_SHOW_DEBUG
       else if (key == '0') {
-	currentScene->ss_solver->show_debug();
+	//currentScene->ss_solver->show_debug();
       }
 #endif
 
@@ -968,12 +968,12 @@ namespace subspace {
     glutDisplayFunc(display);
 
   }
-
+  /*
   void Scene::bind(Subspace* ss) {
-    ss_solver = ss;
+    //ss_solver = ss;
     //    ss_solver->init(object->mesh);
   }
-
+  */
   void dump_image(std::string filename)
   {
     printf("Saving image %s... ", filename.c_str());

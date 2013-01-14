@@ -108,7 +108,7 @@ namespace subspace {
     //is_vertex_rigid.resize(vn);
 
     xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
-    ss_solver = NULL;
+    //ss_solver = NULL;
   };
 
   bool HandlerSelect::register_selected(int winX, int winY, bool toselect) {
@@ -163,17 +163,6 @@ namespace subspace {
     return false;
   }
 
-  /*
-  void HandlerSelect::add_rigid(bool * selected) {
-    int new_rigid_count=0, rt_count = rigids.size();
-    rigids.push_back(std::vector<bool>(vn)); 
-    for (int i=0; i<vn; ++i) 
-      if (selected[i] && !is_vertex_rigid[i])
-	new_rigid_count += (is_vertex_rigid[i] = rigids[rt_count][i] = true);
-
-    std::cout << "Add rigid transformer (#vert " << new_rigid_count << ")" << std::endl;
-  }
-  */
 
   static std::vector<Point> constraint_points_buffer;
 
@@ -193,7 +182,7 @@ namespace subspace {
     std::cout << "Add linear constraint (#vert " << vertex_count << ")" << std::endl;
 
     constraint_points_buffer = constraint_points;
-    if (ss_solver) unset_solver();
+    //if (ss_solver) unset_solver();
   }
 
   void HandlerSelect::delete_selected(){
@@ -212,23 +201,15 @@ namespace subspace {
     }
 
     constraint_points_buffer = constraint_points;
-    if (ss_solver) unset_solver();
+    //if (ss_solver) unset_solver();
   }
-
-  /*
-  void HandlerSelect::manipulate_constraint_points(GLfloat *xf){
-    int hn = constraint_points.size();
-    //    for (int i=0; i<hn; ++i)
-    
-  }
-  */
 
   void HandlerSelect::set_buffer() {
     constraint_points_buffer = constraint_points;
   }
   void HandlerSelect::restore_buffer() {
     constraint_points = constraint_points_buffer;
-    if (ss_solver) ss_solver->update(constraint_points, true);
+    //if (ss_solver) ss_solver->update(constraint_points, true);
   }
 
   void HandlerSelect::update(bool inf) {
@@ -237,7 +218,7 @@ namespace subspace {
       if(selected[i])
 	constraint_points[i] = xf * constraint_points_buffer[i];      
     
-    if (ss_solver) ss_solver->update(constraint_points, inf);
+    //if (ss_solver) ss_solver->update(constraint_points, inf);
   }
 
   void HandlerSelect::draw(double win_world_radio) {
@@ -253,23 +234,16 @@ namespace subspace {
       glPopMatrix();
     }
   }
-
+  /*
   void HandlerSelect::set_solver(Subspace * ss){    
-    ss_solver = ss;
+    //ss_solver = ss;
     ss->prepare(constraints, constraint_points);
   }
   void HandlerSelect::unset_solver() {
-    ss_solver->terminate();
-    ss_solver = NULL;
-  }
-  /*
-  void HandlerSelect::toggle_dump(Subspace *ss) {
-    ss_solver = ss;
-    ss_solver->toggle_dump();
-    ss_solver->prepare(constraints, constraint_points);
+    //ss_solver->terminate();
+    //ss_solver = NULL;
   }
   */
-
   Point HandlerSelect::set_focus(){
     int hn = constraint_points.size(), count =0;
     Point pbuf(0,0,0);
@@ -282,4 +256,5 @@ namespace subspace {
       return  (float) (1./(float) count) * pbuf;
     else return object->center;
   }
+
 }

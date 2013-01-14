@@ -22,6 +22,12 @@ namespace subspace {
     glVertexPointer(3, GL_FLOAT, sizeof(mesh->vertices[0]), &mesh->vertices[0][0]);    
   }
 
+  void Object::register_mesh(float *vbo) {
+    mesh->need_normals();
+    glNormalPointer(GL_FLOAT, sizeof(mesh->normals[0]), &mesh->normals[0][0]);
+    glVertexPointer(3, GL_FLOAT, 0, vbo);    
+  }
+
   void draw_tstrips(const Mesh *themesh)
   {
     static bool use_glArrayElement = false;

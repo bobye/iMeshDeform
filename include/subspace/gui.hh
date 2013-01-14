@@ -2,7 +2,9 @@
 #define _GUI_H_
 
 #include <vector>
-#include "subspace.hh"
+//#include "subspace.hh"
+#include "geometry.hh"
+#define _SS_PI                       (3.141592653589793238)
 #include <GL/glut.h>
 
 namespace subspace {
@@ -29,6 +31,7 @@ namespace subspace {
 
     // render!
     void register_mesh();
+    void register_mesh(float *);//vbo register
     void back_draw();
     void draw();
     //    friend class Subspace;
@@ -55,21 +58,17 @@ namespace subspace {
     void toggle_selected();
   };
 
+
   class HandlerSelect : public Geometry {
   protected:
     std::vector< std::vector<float> > constraints; 
     std::vector< Point > constraint_points;
-    /*
-    std::vector< std::vector<bool> > rigids;
-    std::vector< float[12] > rigid_transforms; 
-    std::vector< bool > is_vertex_rigid;
-    */
-
+  
   public:    
     int vn;
     HandlerSelect(Object*);
     Object  *object;
-    Subspace *ss_solver;
+    //Subspace *ss_solver;
 
     void add_rigid(bool*);
     void add_constraint(bool*);
@@ -87,8 +86,8 @@ namespace subspace {
     void draw(double);
 
 
-    void set_solver(Subspace *);
-    void unset_solver();
+    //void set_solver(Subspace *);
+    //void unset_solver();
 
     Point set_focus();
   };
@@ -100,7 +99,7 @@ namespace subspace {
     HandlerSelect *handsel;
     Geometry *context;//default set to object
 
-    Subspace *ss_solver;//subspace solver
+    //Subspace *ss_solver;//subspace solver
 
     void set_buffer();
     void restore_buffer();
@@ -120,7 +119,7 @@ namespace subspace {
     static void mouse(int, int, int, int);
     */
     void bind(Object*);
-    void bind(Subspace*);
+    //void bind(Subspace*);
     void view();
 
     void read(std::string ); 
