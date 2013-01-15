@@ -5,6 +5,11 @@
 //#include "subspace.hh"
 #include "geometry.hh"
 #define _SS_PI                       (3.141592653589793238)
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
+#include <GL/glu.h>
+#include <GL/glx.h>
+#include <GL/glext.h>
 #include <GL/glut.h>
 
 namespace subspace {
@@ -25,7 +30,10 @@ namespace subspace {
     Mesh *mesh;    
     // bounding box
     GLfloat bbox[6], size;
-    
+    //float *vbo;
+    GLuint vbo_reg, ebo_reg;
+
+    Object();
     Object(Mesh*);
 
 
@@ -99,6 +107,8 @@ namespace subspace {
     HandlerSelect *handsel;
     Geometry *context;//default set to object
 
+
+    int (*animator)();
     //Subspace *ss_solver;//subspace solver
 
     void set_buffer();
@@ -106,7 +116,7 @@ namespace subspace {
 
     Point cursor;
     // transformer
-
+    Scene();
     Scene(int , char**);
     
     /*
@@ -121,6 +131,10 @@ namespace subspace {
     void bind(Object*);
     //void bind(Subspace*);
     void view();
+
+    
+    void set_animator( int (*func)());
+    void animate();
 
     void read(std::string ); 
     void write(std::string );

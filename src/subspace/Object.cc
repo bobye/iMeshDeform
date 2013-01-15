@@ -2,6 +2,8 @@
 #include <string.h>
 
 namespace subspace {
+  Object::Object(){
+  }
   Object::Object(Mesh *pmesh) : mesh(pmesh){
 
     //compute bounding box
@@ -25,7 +27,13 @@ namespace subspace {
   void Object::register_mesh(float *vbo) {
     mesh->need_normals();
     glNormalPointer(GL_FLOAT, sizeof(mesh->normals[0]), &mesh->normals[0][0]);
-    glVertexPointer(3, GL_FLOAT, 0, vbo);    
+    glVertexPointer(3, GL_FLOAT, 0 , vbo);    
+
+    /*
+    glGenBuffers(1, &vbo_reg);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_reg);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*3*mesh->vertices.size(), vbo, GL_DYNAMIC_DRAW);
+    */
   }
 
   void draw_tstrips(const Mesh *themesh)
@@ -73,6 +81,11 @@ namespace subspace {
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   
     glMultMatrixf(xf);	  
+    /*
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_reg);
+    glVertexPointer(3, GL_FLOAT, 0, 0);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    */
     //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
     draw_tstrips(mesh);
     //glDisable(GL_BLEND);

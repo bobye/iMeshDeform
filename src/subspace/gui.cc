@@ -161,6 +161,16 @@ namespace subspace {
 
   }
 
+  void Scene::set_animator( int (*func)()) {
+    animator = func;
+  }
+
+  void animate() {
+    if ((*currentScene->animator)() == 0) glutIdleFunc(NULL);
+    glutPostRedisplay();
+  }
+
+
 
   void display_text() {
     glColor4f(0.0, 1.0, 0.0, 0.75); // Green
@@ -183,6 +193,7 @@ namespace subspace {
       glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, (char ) *i );
     
   }
+
 
   void display_action() {
     glColor4f(1, 1, 1, 0.75);
@@ -503,6 +514,7 @@ namespace subspace {
 
       if (key == 'P') {
 	//currentScene->handsel->set_solver(currentScene->ss_solver);
+	glutIdleFunc(animate);
 	glutPostRedisplay();
       } else if (key == 'S') {
 	currentScene->cursor = currentScene->handsel->set_focus();
@@ -966,7 +978,7 @@ namespace subspace {
     glutPassiveMotionFunc(pmotion);
     glutMouseFunc(mouse);
     glutDisplayFunc(display);
-
+    glutIdleFunc(NULL);
   }
   /*
   void Scene::bind(Subspace* ss) {
@@ -1051,6 +1063,9 @@ namespace subspace {
     std::cout << "Export to " << filename << std::endl;
     
   }
+
+  Scene::Scene(){
+  };
 }
 
 
