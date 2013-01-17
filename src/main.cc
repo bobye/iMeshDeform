@@ -5,7 +5,7 @@ using namespace trimesh;
 using namespace subspace;
 
 
-#define UI_DEBUG
+//#define UI_DEBUG
 
 int main(int argc, char *argv[])
 {

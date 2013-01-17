@@ -126,7 +126,7 @@ namespace subspace {
 
     glutInit(&argc, argv);
 
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowPosition(200.0, 0.0);
     glutInitWindowSize(width, height);
     glutCreateWindow("iMeshDeform - Viewer");
@@ -149,10 +149,12 @@ namespace subspace {
     glEnable(GL_LIGHTING);
 
     //glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+    glPolygonOffset(1.,1.);
+    glEnable(GL_POLYGON_OFFSET_FILL);    
+    //glDisable(GL_POLYGON_OFFSET_LINE);
+    //glDisable(GL_POLYGON_OFFSET_POINT);
 
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(1.,1.);
 
     glEnableClientState(GL_NORMAL_ARRAY);
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -163,7 +165,7 @@ namespace subspace {
 
 
   void display_text() {
-    glColor4f(0.0, 1.0, 0.0, 0.75); // Green
+    glColor3f(0.0, 1.0, 0.0); // Green
     std::string text2render;
     if (current_state & LOCK_MODE_SPEC)
       text2render =  spec_info;
@@ -185,7 +187,7 @@ namespace subspace {
   }
 
   void display_action() {
-    glColor4f(1, 1, 1, 0.75);
+    glColor3f(1, 1, 1);
     if (current_state & LOCK_OBJECT_ROTATE) {
       glBegin(GL_LINES);
 
@@ -217,7 +219,7 @@ namespace subspace {
 
     // draw ground
     glEnable(GL_COLOR_MATERIAL);
-    glColor4f(0.3, 0.3, 0.3, 0.75);
+    glColor3f(0.3, 0.3, 0.3);
 
 
     glBegin(GL_LINES);    
@@ -234,10 +236,10 @@ namespace subspace {
     if (current_state & LOCK_MODE_SELECT) {
       glPushMatrix();//push i-th matrix
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-      glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_solid);
+      glColorPointer(3, GL_UNSIGNED_BYTE, 4, ((VertSelect*) currentScene->context)->color_solid);
       currentScene->object->draw();
       glPopMatrix();//pop i-th matrix
-      glColorPointer(4, GL_UNSIGNED_BYTE, 0, ((VertSelect*) currentScene->context)->color_wire);
+      glColorPointer(3, GL_UNSIGNED_BYTE, 4, ((VertSelect*) currentScene->context)->color_wire);
     }  
 
 
@@ -258,7 +260,7 @@ namespace subspace {
 
 
     glPushMatrix();
-    glColor4f(.5, .5, 0., 0.75);
+    glColor3f(.5, .5, 0.);
     glTranslatef(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
     glutSolidSphere(5*win_world_radio , 20, 20);
     glPopMatrix();    
@@ -940,7 +942,7 @@ namespace subspace {
 
     cursor = context->center;
     
-    glClearColor(0, 0, 0, 0.0);
+    glClearColor(0, 0, 0, 0);
     glClearDepth(1.0);
 
 

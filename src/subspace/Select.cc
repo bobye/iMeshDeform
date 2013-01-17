@@ -15,33 +15,51 @@ namespace subspace {
     }
     xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
 
-    unsigned int *iIndex = new unsigned int [vn],
-      *iBlack = new unsigned int [vn];    
-    for (unsigned int i =0; i< vn; ++i) {iIndex[i] = i+1; iBlack[i] = 0;}
-    index = (GLubyte *) &iIndex[0];
-    black = (GLubyte *) &iBlack[0];
+
+    index = new GLubyte [3*vn],
+    black = new GLubyte [3*vn];    
+
+    for (unsigned int i =0; i< vn; ++i) {
+      index[3*i] = (i+1) % 256; 
+      index[3*i+1] = ((i+1)>>8) % 256; 
+      index[3*i+2] = ((i+1)>>16) % 256; 
+      //std::cout << (int) index[3*i] << " " << (int) (index[3*i+1]<<8) << " " << (int) (index[3*i+2]<<16) << std::endl;
+      black[3*i] = black[3*i+1] = black[3*i+2] = 0;
+    }
+    //    index = (GLubyte *) &iIndex[0];
+    //    black = (GLubyte *) &iBlack[0];
 
   }
   void VertSelect::register_selected(int winX, int winY, int nWidth, int nHeight, bool toselect, bool onlyone){
+
     glDrawBuffer(GL_BACK);
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);//(NEW) setup our buffers
+    /** CullFace enable */
+    glEnable(GL_CULL_FACE);
+    /*
     glPushMatrix();
     glPolygonMode(GL_FRONT, GL_FILL);
-    glColorPointer(4, GL_UNSIGNED_BYTE, 0, black);
+    glColorPointer(3, GL_UNSIGNED_BYTE, 0, black);
     object->back_draw();
     glPopMatrix();
-
+    */
     glPushMatrix();
     glPolygonMode(GL_FRONT, GL_POINT);
-    glColorPointer(4, GL_UNSIGNED_BYTE, 0, index);
+    glColorPointer(3, GL_UNSIGNED_BYTE, 0, index);
     object->back_draw();
+    glDisable(GL_CULL_FACE);
     glPopMatrix();
 
-    unsigned char *pRGBA = new unsigned char [4*nWidth*nHeight];
+    unsigned int nTotal = nWidth * nHeight;
+    GLubyte *pRGBA = new GLubyte [4*nTotal];
     glReadBuffer(GL_BACK);
     glReadPixels(winX, winY, nWidth, nHeight, GL_RGBA, GL_UNSIGNED_BYTE, &pRGBA[0]);
-    unsigned int *ptr = (unsigned int*) & pRGBA[0], nTotal=nWidth*nHeight;
+    int *ptr = new int[nTotal];
 
+
+    for (int i=0; i<nTotal; ++i)
+      ptr[i] = pRGBA[4*i] + (pRGBA[4*i+1]<<8) + (pRGBA[4*i+2]<<16);
+    
     if (onlyone) {
       int mindis=(nWidth*nHeight)/4, minindex = 0;
       int center_x = nWidth/2, center_y=nHeight/2;
@@ -66,6 +84,7 @@ namespace subspace {
     }
 
     delete [] pRGBA;
+    delete [] ptr;
 
     update_color();
     buffered = false;
@@ -113,9 +132,13 @@ namespace subspace {
 
   bool HandlerSelect::register_selected(int winX, int winY, bool toselect) {
     int hn = constraint_points.size();
-    unsigned int *iIndex = new unsigned int [hn];  
-    for (unsigned int i =0; i< hn; ++i) {iIndex[i] = i+1;}
-    index = (GLubyte *) &iIndex[0];
+
+    index = new GLubyte[hn*3];
+    for (unsigned int i =0; i< hn; ++i) { 
+      index[i*3] = (i+1) % 256;
+      index[i*3+1] = ((i+1)>>8) % 256;
+      index[i*3+2] = ((i+1)>>16) % 256;
+    }
 
     int nWidth = 21, nHeight = 21; winX -=10; winY -=10;
 
@@ -126,17 +149,21 @@ namespace subspace {
     glMultMatrixf(object->xf);
     glBegin(GL_POINTS);
     for (int i=0; i<hn; ++i) {
-      glColor4ub(index[4*i], index[4*i+1], index[4*i+2], index[4*i+3]);
+      glColor3ub(index[3*i], index[3*i+1], index[3*i+2]);
       glVertex3f(constraint_points[i][0], constraint_points[i][1], constraint_points[i][2]);
     }
     glEnd();
     glEnable(GL_LIGHTING);
     glPopMatrix();
 
-    unsigned char *pRGBA = new unsigned char [4*nWidth*nHeight];
+    unsigned int nTotal=nWidth*nHeight;
+    unsigned char *pRGBA = new unsigned char [4*nTotal];
     glReadBuffer(GL_BACK);
     glReadPixels(winX, winY, nWidth, nHeight, GL_RGBA, GL_UNSIGNED_BYTE, &pRGBA[0]);
-    unsigned int *ptr = (unsigned int*) & pRGBA[0], nTotal=nWidth*nHeight;
+    unsigned int *ptr = new unsigned int[nTotal]; 
+    for (int i=0; i<nTotal; ++i) 
+      ptr[i] = pRGBA[4*i] + (pRGBA[4*i+1]<<8) + (pRGBA[4*i+2]<<16);
+
 
     int mindis=(nWidth*nHeight)/4, minindex = 0;
     int center_x = nWidth/2, center_y=nHeight/2;
@@ -157,7 +184,7 @@ namespace subspace {
 	if (minindex>0) selected[minindex-1] = true;
       }
     else if (minindex>0) selected[minindex-1] = !selected[minindex-1];//toggle
-    delete [] pRGBA;     delete [] index;
+    delete [] pRGBA;     delete [] index; delete [] ptr;
 
     for (int i=0; i<hn; ++i) if (selected[i]) return true;
     return false;
@@ -246,8 +273,8 @@ namespace subspace {
 
       glPushMatrix();       
       if (selected[i]) 
-	glColor4f(.5, .2, .2, .75); 
-      else glColor4f(0, .5, .5, .75);
+	glColor3f(.5, .2, .2); 
+      else glColor3f(0, .5, .5);
       glTranslatef(constraint_points[i][0], constraint_points[i][1], constraint_points[i][2]);
       glutSolidSphere(7*win_world_radio, 20, 20);
       glPopMatrix();
