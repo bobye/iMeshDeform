@@ -210,6 +210,12 @@ namespace subspace {
     for (int i=0; i<vn; ++i)       
       vertex_count += (constraints[rt_count][i] = selected[i]);
 
+    if (vertex_count == 0) {
+      std::cout << "Warning: No vertices selected!" << std::endl;
+      constraints.pop_back();
+      return;
+    }
+
     Point constraint_center;
     for (int i=0; i<vn; ++i) {
       constraints[rt_count][i]/=vertex_count;
