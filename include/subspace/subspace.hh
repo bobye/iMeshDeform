@@ -28,6 +28,7 @@ namespace subspace {
 
     // switch locker between different sets of constraints
     bool ready;
+    bool on_the_fly;
   public:
     //void add_rigid_constraint(int );
 
@@ -62,6 +63,8 @@ namespace subspace {
     // display debug info
     void show_debug();
 #endif
+
+    void set_off_fly();
   };
 
 

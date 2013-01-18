@@ -6,6 +6,7 @@ using namespace subspace;
 
 
 //#define UI_DEBUG
+//#define OFF_THE_FLY
 
 int main(int argc, char *argv[])
 {
@@ -37,7 +38,11 @@ int main(int argc, char *argv[])
 #else
   ss_solver.read("scene.ss");
 #endif
-  
+
+#ifdef OFF_THE_FLY  
+  ss_solver.set_off_fly();//deform mesh off the fly
+#endif
+
   Scene scene(argc, argv);
 
   Object object = Object(mesh);

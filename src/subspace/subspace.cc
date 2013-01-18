@@ -122,8 +122,13 @@ namespace subspace {
 
 
   Subspace::Subspace(int argc, char **argv) {
+    on_the_fly = true;
     PetscInitialize(&argc,&argv,(char *)0,PETSC_NULL);
   };
+
+  void Subspace::set_off_fly() {
+    on_the_fly = false;
+  }
 
 
   void Subspace::init(Mesh * pm) {
@@ -628,6 +633,7 @@ namespace subspace {
 
 
   void Subspace::update(std::vector<Point> & constraint_points, bool inf){
+    if (!on_the_fly && !inf) return;
     if (ready) {
       for (int i=0, j=0; j<hn; i+=3, ++j) {
 	RHS_hp[i] = constraint_points[j][0];

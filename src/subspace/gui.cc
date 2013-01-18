@@ -938,7 +938,7 @@ namespace subspace {
   void Scene::bind(Object* obj) {
     context = obj; object = obj; 
     vertsel = new VertSelect(obj); 
-    currentScene->handsel = new HandlerSelect(obj);
+    handsel = new HandlerSelect(obj);
 
     cursor = context->center;
     
