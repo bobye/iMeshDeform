@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
   int vn = mesh->vertices.size();
 
   // load linear proxies
+  /*
   std::fstream fid(argv[2]); std::vector<int> group_ids1; group_ids1.resize(vn);
   if (!fid) exit(1); 
   for (int i=0; i<vn; ++i) fid >> group_ids1[i];
@@ -25,6 +26,9 @@ int main(int argc, char *argv[])
   if (!fid) exit(1); 
   for (int i=0; i<vn; ++i) fid >> group_ids2[i];
   fid.close();  
+
+  */
+
   /*
   Subspace ss_solver = Subspace(argc,argv);
   ss_solver.init(mesh);

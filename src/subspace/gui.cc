@@ -451,6 +451,8 @@ namespace subspace {
     if (key=='q'||key=='Q') exit(0); //quit
     else if (key=='s' + ctrl) {
       //currentScene->ss_solver->write("scene.ss");
+      //save selected vertices, index + position
+      currentScene->handsel->export_selected();
     }
     else if (key=='o'||key=='O') { // switch between orth and perspective
       orthOrNot = !orthOrNot;
