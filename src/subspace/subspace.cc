@@ -122,8 +122,13 @@ namespace subspace {
 
 
   Subspace::Subspace(int argc, char **argv) {
+    on_the_fly = true;
     PetscInitialize(&argc,&argv,(char *)0,PETSC_NULL);
   };
+
+  void Subspace::set_off_fly() {
+    on_the_fly = false;
+  }
 
 
   void Subspace::init(Mesh * pm) {
@@ -307,6 +312,7 @@ namespace subspace {
 
       std::vector<int> &faces = mesh->adjacentfaces[i];
       int fn = faces.size();
+
       PetscScalar area = mesh->pointareas[i];
       if (isinf(area) || area < 1E-3 * avgarea) area = 1E-3 * avgarea;
 
@@ -317,13 +323,12 @@ namespace subspace {
 	Vector v20 = mesh->vertices[v2] - mesh->vertices[v0];
 	
 	
-	double tan2 = std::tan(_SS_PI/2 - mesh->cornerangle(2,j)); 
+	double tan2 = std::tan(_SS_PI/2 - mesh->cornerangle(faces[j], 2)); 	
+	double tan0 = std::tan(_SS_PI/2 - mesh->cornerangle(faces[j], 0));	
+	double tan1 = std::tan(_SS_PI/2 - mesh->cornerangle(faces[j], 1));
+
 	mat_edge_assembly_VS(v0, v1, i, std::fabs(tan2)/avgarea, v01);
-	
-	double tan0 = std::tan(_SS_PI/2 - mesh->cornerangle(0,j));
 	mat_edge_assembly_VS(v1, v2, i, std::fabs(tan0)/avgarea, v12);
-	
-	double tan1 = std::tan(_SS_PI/2 - mesh->cornerangle(1,j));
 	mat_edge_assembly_VS(v2, v0, i, std::fabs(tan1)/avgarea, v20);
 
       }
@@ -628,6 +633,7 @@ namespace subspace {
 
 
   void Subspace::update(std::vector<Point> & constraint_points, bool inf){
+    if (!on_the_fly && !inf) return;
     if (ready) {
       for (int i=0, j=0; j<hn; i+=3, ++j) {
 	RHS_hp[i] = constraint_points[j][0];

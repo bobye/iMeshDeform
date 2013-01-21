@@ -56,7 +56,6 @@ namespace subspace {
     glReadPixels(winX, winY, nWidth, nHeight, GL_RGBA, GL_UNSIGNED_BYTE, &pRGBA[0]);
     int *ptr = new int[nTotal];
 
-
     for (int i=0; i<nTotal; ++i)
       ptr[i] = pRGBA[4*i] + (pRGBA[4*i+1]<<8) + (pRGBA[4*i+2]<<16);
     
