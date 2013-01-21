@@ -264,6 +264,24 @@ namespace subspace {
     fp.close();
     std::cout << "Export selected vertices into object.sd" << std::endl;
   }
+
+  void HandlerSelect::import_selected(){
+    std::fstream fp; fp.open("object.sd");
+    int i, count =0;
+    double x,y,z;
+    while (fp.good()) {
+      fp >> i >> x >> y >> z;
+      constraints.push_back(std::vector<float>(vn));
+      
+      for (int j =0; j<vn; ++j) constraints[count][j] = 0;
+      constraints[count++][i] = 1;
+      constraint_points.push_back(Point(x,y,z));
+      selected.push_back(false);
+    }
+    fp.close();
+    constraint_points_buffer = constraint_points;
+    std::cout << "Import selected vertices from object.sd" << std::endl;
+  }
   /*
   void HandlerSelect::manipulate_constraint_points(GLfloat *xf){
     int hn = constraint_points.size();

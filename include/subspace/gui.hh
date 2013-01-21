@@ -86,6 +86,8 @@ namespace subspace {
     bool register_selected(int, int, bool);
     void delete_selected();
     void export_selected();
+    void import_selected();
+
 
     void set_buffer();
     void restore_buffer();
