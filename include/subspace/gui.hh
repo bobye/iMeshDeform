@@ -32,6 +32,7 @@ namespace subspace {
     GLfloat bbox[6], size;
     //float *vbo;
     GLuint vbo_reg, ebo_reg;
+    std::string name;
 
     Object();
     Object(Mesh*);

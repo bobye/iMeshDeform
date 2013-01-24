@@ -299,7 +299,8 @@ namespace subspace {
   }
 
   void HandlerSelect::export_selected(){//point constraint only, index started from 1
-    std::ofstream fp; fp.open("object.sd");
+    std::string filename = object->name;
+    std::ofstream fp; fp.open(filename.append(".sd").c_str());
     int rt_count = constraints.size();
     for (int i=0; i<rt_count; ++i) {
       for (int j=0; j<vn; ++j)
@@ -313,13 +314,18 @@ namespace subspace {
 	}
     }
     fp.close();
-    std::cout << "Export " << selected.size() << " selected vertices into object.sd" << std::endl;
+    std::cout << "Export " << selected.size() << " selected vertices into " << filename << std::endl;
   }
 
   void HandlerSelect::import_selected(){
-    std::fstream fp; fp.open("object.sd");
+    std::string filename = object->name;
+    std::fstream fp; fp.open(filename.append(".sd").c_str());
     int i, count =0;
     double x,y,z;
+    constraints.clear();
+    constraint_points.clear();
+    selected.clear();
+
     while (fp.good()) {
       fp >> i >> x >> y >> z;
       constraints.push_back(std::vector<float>(vn));
@@ -331,7 +337,7 @@ namespace subspace {
     }
     fp.close();
     constraint_points_buffer = constraint_points;
-    std::cout << "Import " << selected.size() << " selected vertices from object.sd" << std::endl;
+    std::cout << "Import " << selected.size() << " selected vertices from " << filename << std::endl;
   }
   /*
   void HandlerSelect::manipulate_constraint_points(GLfloat *xf){

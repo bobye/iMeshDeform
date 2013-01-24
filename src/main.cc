@@ -9,7 +9,7 @@ using namespace subspace;
 
 int main(int argc, char *argv[])
 {
-  // read mesh
+  // read mesh  
   TriMesh *mesh = TriMesh::read(argv[1]);
   if (!mesh) exit(1);
   int vn = mesh->vertices.size();
@@ -51,7 +51,9 @@ int main(int argc, char *argv[])
   
   Scene scene(argc, argv);
 
+
   Object object = Object(mesh);
+  object.name = std::string(argv[1]);
   //  object.register_mesh(vertices);
   object.register_mesh();
   scene.bind(&object);
