@@ -62,6 +62,7 @@ namespace subspace {
 
     VertSelect(Object*);
     ~VertSelect();
+    int pick_vertex(int, int);
     void register_selected(int,int,int,int,bool, bool onlyone=false);
     void toggle_selected();
   };
@@ -87,7 +88,8 @@ namespace subspace {
     void delete_selected();
     void export_selected();
     void import_selected();
-
+    int set_editing_selected();
+    void set_selected_pos(int, int, bool reset = false);
 
     void set_buffer();
     void restore_buffer();

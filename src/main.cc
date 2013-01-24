@@ -13,7 +13,14 @@ int main(int argc, char *argv[])
   TriMesh *mesh = TriMesh::read(argv[1]);
   if (!mesh) exit(1);
   int vn = mesh->vertices.size();
-
+  /*
+  float *vertices = new float[3*vn];
+  for (int i=0; i<vn; ++i) {
+    vertices[3*i] = mesh->vertices[i][0];
+    vertices[3*i+1] = mesh->vertices[i][1];
+    vertices[3*i+2] = mesh->vertices[i][2];
+  }
+  */
   // load linear proxies
   /*
   std::fstream fid(argv[2]); std::vector<int> group_ids1; group_ids1.resize(vn);
@@ -45,6 +52,7 @@ int main(int argc, char *argv[])
   Scene scene(argc, argv);
 
   Object object = Object(mesh);
+  //  object.register_mesh(vertices);
   object.register_mesh();
   scene.bind(&object);
   //  scene.bind(&ss_solver); // bind mesh to subspace solver
