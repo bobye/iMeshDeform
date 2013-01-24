@@ -373,7 +373,7 @@ namespace subspace {
 	glColor3f(.5, .2, .2); 
       else glColor3f(0, .5, .5);
       glTranslatef(constraint_points[i][0], constraint_points[i][1], constraint_points[i][2]);
-      glutSolidSphere(4*win_world_radio, 10, 10);
+      glutSolidSphere(3*win_world_radio, 10, 10);
       glPopMatrix();
     }
   }

@@ -264,12 +264,12 @@ namespace subspace {
 
     currentScene->object->draw();		    
 
-    glDisable(GL_DEPTH_TEST);
     glEnable(GL_COLOR_MATERIAL);
 
 
     currentScene->handsel->draw(win_world_radio);
 
+    glDisable(GL_DEPTH_TEST);
 
     glPushMatrix();
     glColor4f(.5, .5, 0., 0.75);
@@ -525,6 +525,7 @@ namespace subspace {
 	currentScene->set_buffer();
 	moving_handler = currentScene->handsel->set_editing_selected();//single point selected
 	std::cout << "Editing handler " << moving_handler+1 << " ... ";
+	glutSetCursor(GLUT_CURSOR_CROSSHAIR);
 	if (moving_handler!=-1) is_moving_handler = true;
       }
 
@@ -901,6 +902,7 @@ namespace subspace {
 	    set_selected_pos(moving_handler, currentScene->vertsel->pick_vertex(x, viewport[3] -y), true);
 	  is_moving_handler = false;	  
 	  std::cout << "[Done]" << std::endl;
+	  glutSetCursor(GLUT_CURSOR_INHERIT);
 	  glutPostRedisplay();
 	}
       }
@@ -932,7 +934,7 @@ namespace subspace {
 	if (currentScene->context == currentScene->handsel && is_moving_handler) {
 	  currentScene->restore_buffer();
 	  std::cout << "[Cancel]" << std::endl;
-
+	  glutSetCursor(GLUT_CURSOR_INHERIT);
 	  is_moving_handler = false;
 	}
 	if (current_state & LOCK_MODE_SELECT) {
