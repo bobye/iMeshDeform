@@ -326,12 +326,11 @@ namespace subspace {
     constraint_points.clear();
     selected.clear();
 
-    while (fp.good()) {
-      fp >> i >> x >> y >> z;
+    while (fp >> i >> x >> y >> z) {      
       constraints.push_back(std::vector<float>(vn));
       
       for (int j =0; j<vn; ++j) constraints[count][j] = 0;
-      constraints[count++][i] = 1;
+      constraints[count++][i-1] = 1;
       constraint_points.push_back(Point(x,y,z));
       selected.push_back(false);
     }
