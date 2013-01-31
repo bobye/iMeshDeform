@@ -233,7 +233,7 @@ namespace subspace {
     glEnable(GL_COLOR_MATERIAL);
     glColor4f(0.3, 0.3, 0.3, 0.75);
 
-
+    /*
     glBegin(GL_LINES);    
     for (int i = -20; i<=20; ++i) {
       glVertex3f( i * ground_wire, 0,  (-20) * ground_wire);
@@ -243,7 +243,7 @@ namespace subspace {
     }
     glEnd();
     
-
+    */
 
     if (current_state & LOCK_MODE_SELECT) {
       glPushMatrix();//push i-th matrix
@@ -523,10 +523,12 @@ namespace subspace {
       }
       else if (key=='e' && !is_moving_handler) {
 	currentScene->set_buffer();
-	moving_handler = currentScene->handsel->set_editing_selected();//single point selected
-	std::cout << "Editing handler " << moving_handler+1 << " ... ";
-	glutSetCursor(GLUT_CURSOR_CROSSHAIR);
-	if (moving_handler!=-1) is_moving_handler = true;
+	moving_handler = currentScene->handsel->set_editing_selected();//single point selected	
+	if (moving_handler!=-1) { 
+	  std::cout << "Editing handler " << moving_handler+1 << " ... ";
+	  is_moving_handler = true;
+	  glutSetCursor(GLUT_CURSOR_CROSSHAIR);
+	}
       }
 
       if (key == 'P') {
