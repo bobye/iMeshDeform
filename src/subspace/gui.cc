@@ -132,7 +132,7 @@ namespace subspace {
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowPosition(200.0, 0.0);
     glutInitWindowSize(width, height);
-    glutCreateWindow("iMeshDeform - Viewer");
+    glutCreateWindow("iVertSelect - Viewer");
 
     glShadeModel(GL_SMOOTH);// Enable Smooth Shading
     
