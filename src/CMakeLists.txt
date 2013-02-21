@@ -1,6 +1,7 @@
 ADD_EXECUTABLE(iMeshDeform main.cc)
+ADD_EXECUTABLE(preconfig preconfig.cc)
 TARGET_LINK_LIBRARIES(iMeshDeform subspace ${LIBS})
-
+TARGET_LINK_LIBRARIES(preconfig   subspace ${LIBS})
 #INCLUDE_DIRECTORIES(${SLEPC_INCLUDES})
 #ADD_EXECUTABLE(eigen_solver eigen_solver.cc)
 #TARGET_LINK_LIBRARIES(eigen_solver ${SOLVER_LIBS})

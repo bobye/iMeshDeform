@@ -1,7 +1,7 @@
-#include "TriMesh.h"
+#include "subspace/geometry.hh"
 #include "subspace/gui.hh"
 
-using namespace trimesh;
+//using namespace trimesh;
 using namespace subspace;
 
 
@@ -11,7 +11,7 @@ using namespace subspace;
 int main(int argc, char *argv[])
 {
   // read mesh
-  TriMesh *mesh = TriMesh::read(argv[1]);
+  Mesh *mesh = (Mesh *) Mesh::read(argv[1]);
   if (!mesh) exit(1);
   int vn = mesh->vertices.size();
 
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
   for (int i=0; i<vn; ++i) fid >> group_ids2[i];
   fid.close();  
 
-  Subspace ss_solver = Subspace(argc,argv);
+  Subspace ss_solver(argc,argv);
   ss_solver.init(mesh);
   ss_solver.load_linear_proxies_vg(group_ids1);
   ss_solver.load_rotational_proxies(group_ids2);

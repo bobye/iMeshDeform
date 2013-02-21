@@ -520,6 +520,7 @@ namespace subspace {
     _SS_FREE(Rot); _SS_FREE(Rot_b); //_SS_FREE(RotNorm);
 
     _SS_FREE(vertices);
+    PetscFinalize();
     //delete [] vertices_f;
   }
 
