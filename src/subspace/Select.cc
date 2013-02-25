@@ -395,7 +395,7 @@ namespace subspace {
   void HandlerSelect::set_selected_pos(int i, int v, bool reset) {
     if (v == 0) return; // no vertex selected, do nothing
     if (reset) {
-      std::memset(&constraints[i][0], 0, vn); 
+      for (int j=0; j<vn; ++j) constraints[i][j] = 0;
       constraints[i][v-1] = 1;    
     }
     constraint_points[i] = object->mesh->vertices[v-1];
