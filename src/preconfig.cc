@@ -11,6 +11,7 @@ int main(int argc, char* argv[]) {
   op.init(mesh);
   op.compute_operator();
   op.solve_eigen();
+  std::system("matlab -r \"cluster_data('default', 25);exit;\" -nojvm -nodesktop -nodisplay");
 
   return 0;
 }

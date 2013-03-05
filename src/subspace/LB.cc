@@ -12,6 +12,10 @@ namespace subspace {
   ST          	 st;		  /* spectral transformation context */
   Vec            x;
 
+  std::vector<double> eigvalues;
+  std::vector< PetscScalar *> eigvectors;
+  std::vector<Vec> eigVecs;
+
   LB::LB(int argc, char** argv) {
     SlepcInitialize(&argc,&argv,(char *)0,PETSC_NULL);
   }
@@ -20,7 +24,7 @@ namespace subspace {
     MatDestroy(&mass_mat); MatDestroy(&stiff_mat);    
 
     EPSDestroy(&eps); VecDestroy(&x);
-
+    for (int i=0; i<eigVecs.size(); ++i) VecDestroy(&eigVecs[i]);
 
     SlepcFinalize();
   }
@@ -111,9 +115,14 @@ const PetscInt J4[9]
     PetscScalar 	 kr, ki, re, im, error;
 
     EPSGetConverged(eps,&nconv);
+    eigvalues.resize(nconv);
+    eigvectors.resize(nconv);
+    eigVecs.resize(nconv);
+    
     for(int i=0; i<nconv; i++ ) {
-       EPSGetEigenpair(eps,i,&kr,&ki,x,PETSC_NULL);
-       EPSComputeRelativeError(eps,i,&error);
+      VecDuplicate(x, &eigVecs[i]);
+      EPSGetEigenpair(eps,i,&kr,&ki,eigVecs[i],PETSC_NULL);
+      EPSComputeRelativeError(eps,i,&error);
 #if defined(PETSC_USE_COMPLEX)
       re = PetscRealPart(kr);
       im = PetscImaginaryPart(kr);
@@ -128,7 +137,21 @@ const PetscInt J4[9]
 	PetscPrintf(PETSC_COMM_WORLD,"  % 12.12e      ",re);
       }
       PetscPrintf(PETSC_COMM_WORLD," % 12g\n",error);
+
+      eigvalues[i] = re;
+      VecGetArray(eigVecs[i], &eigvectors[i]);
+
     }
+
+    std::ofstream fid("default_examples.embd");
+    fid << mat_size << " " << nconv << std::endl;
+    for (int i = 0; i < mat_size; ++i) {
+      for (int j = 0; j < nconv; ++j) 
+	fid << eigvectors[j][i]/std::sqrt(eigvalues[j]) << " ";
+      fid << std::endl;
+    }
+    fid.close();
+
 
   }
 }
