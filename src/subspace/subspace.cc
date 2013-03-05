@@ -55,6 +55,7 @@ struct timespec start, end;
 #define NUM_OF_SVD_THREAD 4 // parallel 3x3 svd
 #include "fastsvd.hh"
 
+#if 0
 inline void apply_rot(float * const y, const _SS_SCALAR *x, const _SS_SCALAR *M, const char Order) {// M in row major
   if (Order == 'R') {
     y[0] = M[0]*x[0] + M[1]*x[1] + M[2]*x[2];
@@ -68,6 +69,7 @@ inline void apply_rot(float * const y, const _SS_SCALAR *x, const _SS_SCALAR *M,
     y[0] = x[0]; y[1] = x[1]; y[2] = x[2];
   }
 }
+#endif
 
 namespace subspace {
 
@@ -332,6 +334,10 @@ namespace subspace {
 	mat_edge_assembly_VS(v2, v0, i, std::fabs(tan1)/avgarea, v20);
 
       }
+
+      /* Dumping radio: overall distortion vs normal directional distortion
+       * which only makes sense to surface meshes 
+       */
 
       const PetscInt idq[4] = {vn3+ 4*i, vn3 + 4*i+1, vn3 + 4*i+2, vn3 + 4*i+3}; 
       Vector n = mesh->normals[i];
@@ -627,9 +633,18 @@ namespace subspace {
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, vertices, 1);
     _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, vertices, 1);
     //		)
-
+    /*
     for (int i=0, j=0; i<vn; ++i, j+=3)
       apply_rot(mesh->vertices[i], &vertices[j], GRot, 'C');
+    */
+    _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans, 
+			 3, vn, 3,
+			 1, 
+			 GRot, 3, 
+			 vertices, 3, 
+			 0, 
+			 mesh->vertices_tightpacked, 3);
+   
   }
 
 
@@ -655,7 +670,7 @@ namespace subspace {
 
       //recompute normals
 
-      if (inf) { mesh->normals.clear(); mesh->need_normals();}
+      if (inf) { mesh->recompute_normals_tightpacked(); }
     }
   }
   void Subspace::terminate() {

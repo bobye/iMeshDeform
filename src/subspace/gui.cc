@@ -32,6 +32,7 @@ namespace subspace {
   static bool object_rotate_switch = false,
     orthOrNot=false,
     wireOrNot=false;
+  static Geometry *context_buffer;
 
   char current_state = 0x00;
 #define LOCK_VIEW_TRANSLATE   0x01
@@ -485,11 +486,13 @@ namespace subspace {
       if (current_state & LOCK_MODE_SELECT ) { // return to normal mode
 	current_state = 0;
 	wireOrNot = false;
-	currentScene->context = currentScene->object;
+	//currentScene->context = currentScene->object;
+	currentScene->context = context_buffer;
 	glDisableClientState(GL_COLOR_ARRAY);
       } else { // set select mode
 	current_state = LOCK_MODE_SELECT;
 	wireOrNot = true;
+	context_buffer = currentScene->context;
 	currentScene->context = currentScene->vertsel;
 	glEnableClientState(GL_COLOR_ARRAY);
       }

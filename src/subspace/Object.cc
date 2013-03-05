@@ -17,9 +17,10 @@ namespace subspace {
 
   void Object::register_mesh() {
     //load geometric information 
-    mesh->need_normals();
-    glNormalPointer(GL_FLOAT, sizeof(mesh->normals[0]), &mesh->normals[0][0]);
-    glVertexPointer(3, GL_FLOAT, sizeof(mesh->vertices[0]), &mesh->vertices[0][0]);    
+    mesh->allocate_data_tightpacked();
+
+    glNormalPointer(GL_FLOAT, 0, mesh->normals_tightpacked);
+    glVertexPointer(3, GL_FLOAT, 0, mesh->vertices_tightpacked);    
   }
 
   void draw_tstrips(const Mesh *themesh)

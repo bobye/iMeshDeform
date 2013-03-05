@@ -216,10 +216,13 @@ namespace subspace {
       return;
     }
 
-    Point constraint_center;
+    Point constraint_center; 
+    float* &vertices_p = object->mesh->vertices_tightpacked;
     for (int i=0; i<vn; ++i) {
       constraints[rt_count][i]/=vertex_count;
-      constraint_center += constraints[rt_count][i]*object->mesh->vertices[i];
+      constraint_center += constraints[rt_count][i]*
+	Point(vertices_p[3*i], vertices_p[3*i+1], vertices_p[3*i+2]);
+	//object->mesh->vertices[i];
     }
     constraint_points.push_back(constraint_center);
     this->selected.push_back(false);
