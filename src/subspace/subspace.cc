@@ -29,6 +29,7 @@
 #define _SS_MALLOC_INT(x)       (int *) mkl_malloc( (x) *sizeof(int), 16)
 #define _SS_FREE(x)         mkl_free(x)
 
+// Timing, count in seconds.
 struct timespec start, end;
 #define BILLION  1000000000L
   void clock_start(std::string description) {
@@ -39,6 +40,8 @@ struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &end);
     printf("\t[done] %.3f seconds\n", (( end.tv_sec - start.tv_sec )+ (double)( end.tv_nsec - start.tv_nsec ) / (double)BILLION ));
   }
+
+// Timing, count in nano seconds.
 #ifdef _SS_SHOW_DEBUG
   struct timespec nstart, nend;
   inline void nclock_start() {clock_gettime(CLOCK_MONOTONIC, &nstart);}
@@ -52,6 +55,11 @@ struct timespec start, end;
 #define _SS_PROFILE(x) x
 #endif
 
+/* Computing the Singular Value Decomposition of 3x3 matrices 
+ * with minimal branching and elementary floating point operations 
+ * A. McAdams, A. Selle, R. Tamstorf, J. Teran and E. Sifakis
+ * http://pages.cs.wisc.edu/~sifakis/project_pages/svd.html
+ */
 #define NUM_OF_SVD_THREAD 4 // parallel 3x3 svd
 #include "fastsvd.hh"
 
@@ -72,35 +80,58 @@ inline void apply_rot(float * const y, const _SS_SCALAR *x, const _SS_SCALAR *M,
 #endif
 
 namespace subspace {
+  /* This section concerns the general variational reduced model for deformable energy.
+   * Three parts: 
+   * 1. Control layer, control parameters for geometry, default as model geometry
+   * 2. Physical layer, elastic model in terms of geometry (triangles tetrahedrons)
+   * 3. Display layer, surface mesh displayed
+   */
 
-  static int vn, vn3;
-  static _SS_SCALAR totarea, avgarea;
+  /*****************************************************************************/
+  // Control layer
+  static Mat Ctrl2Geom, Ctrl2GeomT; // default identity
+  static int cn; // number of artificial controls
 
-  static int ln, rn, ln3, rn9;
+  /*****************************************************************************/
+  // Physical layer
+  
+  static int vn, vn3; // vertices number, and geometric dimension
+  static _SS_SCALAR totarea, avgarea; // total area and average vertex supporting area
+
+  // number and dimension of linear proxies, rotational proxies 
+  static int ln, rn, ln3, rn9; 
+
   //linear proxies
-  static PetscScalar*  linear_proxies; // column major
-  //rotational proxies
+  static PetscScalar*  linear_proxies; // column major vn3 x ln3
+
+  //rotational proxies, clusters of vertices
   static std::vector<int> rotational_proxies;
 
-  //variational subspace solver
-
-  static Mat  VS;//sparse matrix to LU
+  /* variational subspace solver
+   * assembly: VS, VS_L, VS_R
+   * sparse solving: SL, SR
+   * vectorization: SL_V, SR_V
+   * reduced model: LVS, MVS, LVSR, MVSR, (NR, CR)
+   */
+  static Mat  VS;//sparse matrix to LU: dimension 7*vn + 3*ln
   static Mat  RE;//linearization artifacts regulazier
-#define COEFF_REG_L2      (0.001)
-#define COEFF_REG_RADIO   (0.5)
-#define EPSILON           (1E-5)
-#define NUM_OF_ITERATION  (8)
 
-  static Vec* VS_L, *SL;//solved variational subspace
-  static Vec* VS_R, *SR;//row major index for each rotation matrix
+#define COEFF_REG_L2      (0.001) // dumping for nonrigid distortion
+#define COEFF_REG_RADIO   (0.5)   // radio: normal / (overall + normal)
+#define EPSILON           (1E-5)  // N/A
+#define NUM_OF_ITERATION  (8)     // number of iterations of reduced model per frame
 
-  static _SS_SCALAR *SL_V, *SR_V; // for mesh reconstruction
-  static _SS_SCALAR *LVS, *MVS; //reduced model for linear variational subspace
+  static Vec* VS_L, *SL;//solved variational subspace: VS * SL = VS_L
+  static Vec* VS_R, *SR;//row major index for each rotation matrix: VS * SR = VS_R
+
+  static _SS_SCALAR *SL_V, *SR_V; // for mesh reconstruction, vectorization of SL and SR.
+  static _SS_SCALAR *LVS, *MVS; // reduced model for linear variational subspace
   /*
   static _SS_SCALAR *LVS_DP, *MVS_DP; //reduced model for linear variational subspace (with dumping)
   static _SS_SCALAR *LVS_ND, *MVS_ND; //reduced model for linear variational subspace (without dumping)
   */
-  const bool switch_dump = false;
+
+  const bool switch_dump = false; // N/A
 
   static _SS_SCALAR *LVSR, *MVSR;
 #ifdef _SS_USE_CONFORMAL
@@ -116,6 +147,9 @@ namespace subspace {
   static int *LSYS_piv;
   static int hn, hn3, nsys;
 
+  /*****************************************************************************/
+  // Display layer
+
   static _SS_SCALAR *vertices;
   //static _SS_SCALAR *RotNorm;
   //static float *vertices_f;
@@ -123,6 +157,7 @@ namespace subspace {
   //  static pthread_t iterate_lin, iterate_rot;
 
 
+  /*****************************************************************************/
   Subspace::Subspace(int argc, char **argv) {
     on_the_fly = true;
     PetscInitialize(&argc,&argv,(char *)0,PETSC_NULL);
@@ -190,9 +225,67 @@ namespace subspace {
     
   }
 
+  void Subspace::load_controls(std::vector<int> &group_ids) {
+    assert(vn == group_ids.size());
+    clock_start("Preparing control layer");
+
+    int M = 0, cn = 0;
+    for (int i=0; i<vn; ++i)
+      if (cn <= group_ids[i] && group_ids[i] != 0) cn = group_ids[i];
+      else if(group_ids[i] == 0) ++M;
+    M = 3*M; cn = M + 12*cn;
+
+    int N = 7*vn + 3*ln;
+    int *nnz = new int [N];
+    for (int i=0; i<vn; ++i) {
+      if (group_ids[i] == 0) nnz[3*i] = nnz[3*i+1] = nnz[3*i+2] = 1;
+      else nnz[3*i] = nnz[3*i+1] = nnz[3*i+2] = 4;
+    }
+    for (int i=0; i<4*vn; ++i) nnz[vn3 + i] = 1;    
+    for (int i=0; i<ln3; ++i)  nnz[7*vn + i] = 1;
+
+
+    MatCreateSeqAIJ(PETSC_COMM_SELF, N, cn + 4*vn + 3*ln, 0, nnz, &Ctrl2Geom); //delete [] nnz;
+
+    std::vector<int> tmp_count(N, 0);
+
+    const PetscScalar one = 1;
+    for (int i=0, j=0; i<vn; ++i) 
+      if (group_ids[i] == 0) {
+	int ix=3*i, iy=3*i+1, iz=3*i+2;
+	int jx=3*j, jy=3*j+1, jz=3*j+2;
+	MatSetValues(Ctrl2Geom, 1, &ix, 1, &jx, &one, INSERT_VALUES);
+	MatSetValues(Ctrl2Geom, 1, &iy, 1, &jy, &one, INSERT_VALUES);
+	MatSetValues(Ctrl2Geom, 1, &iz, 1, &jz, &one, INSERT_VALUES);	
+	++j;
+      }
+      else {
+	int m = M + 12* (group_ids[i] -1);
+	int ix=3*i, iy=3*i+1, iz=3*i+2;
+	int mx[4] = {m, m+3, m+4, m+5};
+	int my[4] = {m+1, m+6, m+7, m+8};
+	int mz[4] = {m+2, m+9, m+10, m+11};	
+	PetscScalar mv[4] = {1, mesh->vertices[i][0], mesh->vertices[i][1], mesh->vertices[i][2]};
+
+	MatSetValues(Ctrl2Geom, 1, &ix, 4, mx, mv, INSERT_VALUES);
+	MatSetValues(Ctrl2Geom, 1, &iy, 4, my, mv, INSERT_VALUES);
+	MatSetValues(Ctrl2Geom, 1, &iz, 4, mz, mv, INSERT_VALUES);
+
+      }
+
+    for (int i=3*vn, j=cn; i< N; ++i, ++j)
+      MatSetValues(Ctrl2Geom, 1, &i, 1, &j, &one, INSERT_VALUES);
+
+    MatAssemblyBegin(Ctrl2Geom,MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(Ctrl2Geom,MAT_FINAL_ASSEMBLY);
+
+    //MatView(Ctrl2Geom, PETSC_VIEWER_STDOUT_SELF);
+    MatTranspose(Ctrl2Geom, MAT_INITIAL_MATRIX, &Ctrl2GeomT);
+    clock_end();
+  }
+
 
   void Subspace::allocate() {
-
 #ifdef _SS_USE_CONFORMAL
     if (!NR) NR = _SS_MALLOC_SCALAR(rn); 
     if (!CR) CR = _SS_MALLOC_SCALAR(rn);
@@ -382,20 +475,46 @@ namespace subspace {
 
 
   void Subspace::solve() {
-    clock_start("Solving reduced model");
+    //clock_start("Solving reduced model");
     /**************************************************/
     // assembly matrix
+    clock_start("Assembly Physical layer");
     allocate();
     assembly();
+    clock_end();
     //    MatAXPY(VS, COEFF_REG, RE, DIFFERENT_NONZERO_PATTERN);
     /**************************************************/
     // solve sparse system
-    Mat L; MatConvert(VS, MATSEQAIJ, MAT_INITIAL_MATRIX, &L);
+
+    // convert to control layer
+    clock_start("Preparing offline sparse system");
+    Mat L, Ltmp, Ltmp2; 
+    MatConvert(VS, MATSEQAIJ, MAT_INITIAL_MATRIX, &L);    
+
+    MatMatMult(Ctrl2GeomT, L, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &Ltmp);
+    MatTranspose(Ltmp, MAT_INITIAL_MATRIX, &Ltmp2);
+
+    MatMatMult(Ctrl2GeomT, Ltmp2, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &L);
+
+    MatDestroy(&Ltmp); MatDestroy(&Ltmp2);
+
     KSP ksp;
     PC direct_solver;
-    SL = new Vec[ln3]; SR = new Vec[rn9];
-    VecDuplicateVecs(VS_L[0], ln3, &SL); VecDuplicateVecs(VS_R[0], rn9, &SR);
+    Vec * cVS_L = new Vec[ln3], * cVS_R = new Vec[rn9];
     
+
+    for (int i=0; i<ln3; ++i) MatGetVecs(L, &cVS_L[i], PETSC_NULL);
+    for (int i=0; i<rn9; ++i) MatGetVecs(L, &cVS_R[i], PETSC_NULL);
+    for (int i=0; i<ln3; ++i) MatMult(Ctrl2GeomT, VS_L[i], cVS_L[i]);
+    for (int i=0; i<rn9; ++i) MatMult(Ctrl2GeomT, VS_R[i], cVS_R[i]);
+
+    SL = new Vec[ln3]; SR = new Vec[rn9];
+    
+
+    VecDuplicateVecs(cVS_L[0], ln3, &SL); VecDuplicateVecs(cVS_R[0], rn9, &SR);
+    clock_end();
+
+    clock_start("Solving offline sparse system");
     KSPCreate(PETSC_COMM_SELF, &ksp);
     KSPSetOperators(ksp, L, L, SAME_PRECONDITIONER);
     KSPSetType(ksp, KSPPREONLY);
@@ -403,33 +522,45 @@ namespace subspace {
     PCSetType(direct_solver, PCLU); // use LU facterization to solve the subspace
     //KSPSetType(ksp, KSPPREONLY);
     KSPSetFromOptions(ksp);
+
     KSPSetUp(ksp);
-    
-    for (int i=0; i<ln3; ++i) KSPSolve(ksp, VS_L[i], SL[i]); 
-    for (int i=0; i<rn9; ++i) KSPSolve(ksp, VS_R[i], SR[i]); 
+
+    for (int i=0; i<ln3; ++i) KSPSolve(ksp, cVS_L[i], SL[i]); 
+    for (int i=0; i<rn9; ++i) KSPSolve(ksp, cVS_R[i], SR[i]); 
 
 
-    MatDestroy(&L);
+    //MatDestroy(&L);
+    for (int i=0; i<ln3; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
+    for (int i=0; i<rn9; ++i) VecDestroy(&VS_R[i]); delete [] VS_R;
     KSPDestroy(&ksp);
+
+    clock_end();
+
     /**************************************************/
     // copy subspace solution data to global array
+    clock_start("Preparing display layer");
+    Vec tmp; MatGetVecs(VS, &tmp, PETSC_NULL);
 
-    for (int i=0; i<ln3; ++i) {
+     for (int i=0; i<ln3; ++i) {
       PetscScalar *buffer;
-      VecGetArray(SL[i], &buffer);
+      MatMult(Ctrl2Geom, SL[i], tmp);
+      VecGetArray(tmp, &buffer);
       for (int j=0; j<vn3; ++j) SL_V[vn3*i+j] = buffer[j];
     }
     for (int i=0; i<rn9; ++i) {
       PetscScalar *buffer;
-      VecGetArray(SR[i], &buffer);
+      MatMult(Ctrl2Geom, SR[i], tmp);
+      VecGetArray(tmp, &buffer);
       for (int j=0; j<vn3; ++j) SR_V[vn3*i+j] = buffer[j];
     }
-
+    VecDestroy(&tmp);
+    clock_end();
     /**************************************************/
+    clock_start("Precomputing online dense system");
     // precompute online dense linear system (with/without dump)
     PetscInt *indices = new PetscInt[ln3];
     PetscScalar *zeros = new PetscScalar[ln3]; std::fill(zeros, zeros + ln3, 0.);
-    for (int i=0; i<ln3; ++i) indices[i] = 7*vn + i;
+    for (int i=0; i<ln3; ++i) indices[i] = cn + 4*vn + i;
     for (int i=0; i<ln3; ++i) {
       VecSetValues(SL[i], ln3, indices, zeros, INSERT_VALUES);
       VecAssemblyBegin(SL[i]);
@@ -446,7 +577,7 @@ namespace subspace {
 
     for (int i=0; i<ln3; ++i) {
       Vec tmp; VecDuplicate(SL[i], &tmp);
-      MatMult(VS, SL[i], tmp);
+      MatMult(L, SL[i], tmp);
       
       for (int j=i; j<ln3; ++j) {
 	PetscScalar buffer;
@@ -456,21 +587,19 @@ namespace subspace {
       }
       for (int j=0; j<rn9; ++j) {
 	PetscScalar buffer;
-	VecDot(SL[i], VS_R[j], &buffer);
+	VecDot(SL[i], cVS_R[j], &buffer);
 	PetscScalar tominus;
 	VecDot(SR[j], tmp, &tominus);
 	MVS[ln3*j+i] = buffer - tominus;
       }
       VecDestroy(&tmp);
     }
-
-
     /**************************************************/
     // precompute rotational fitting system
 
     indices = new PetscInt[4*vn];
     zeros = new PetscScalar[4*vn]; std::fill(zeros, zeros + 4*vn, 0.);
-    for (int i=0; i<4*vn; ++i) indices[i] = 3*vn + i;
+    for (int i=0; i<4*vn; ++i) indices[i] = cn + i;
     for (int i=0; i<ln3; ++i) {
       VecSetValues(SL[i], 4*vn, indices, zeros, INSERT_VALUES);
       VecAssemblyBegin(SL[i]);
@@ -489,25 +618,26 @@ namespace subspace {
     for (int i=0; i<rn9; ++i) {
       for (int j=0; j<ln3; ++j) {
 	PetscScalar buffer;
-	VecDot(VS_R[i], SL[j], &buffer);
+	VecDot(cVS_R[i], SL[j], &buffer);
 	LVSR[i+j*rn9] = buffer;
       }
       for (int j=0; j<rn9; ++j) {
 	PetscScalar buffer;
-	VecDot(VS_R[i], SR[j], &buffer);
+	VecDot(cVS_R[i], SR[j], &buffer);
 	MVSR[i+j*rn9] = buffer;
       }
     }
 
 
-
     MatDestroy(&VS);
-    for (int i=0; i<ln3; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
-    for (int i=0; i<rn9; ++i) VecDestroy(&VS_R[i]); delete [] VS_R;
-
-    PetscFinalize();
+    MatDestroy(&L);
+    for (int i=0; i<ln3; ++i) VecDestroy(&cVS_L[i]); delete [] cVS_L;
+    for (int i=0; i<rn9; ++i) VecDestroy(&cVS_R[i]); delete [] cVS_R;
 
     clock_end();
+    PetscFinalize();
+
+    //clock_end();
     std::cout << "  linear Proxies: " << ln << "; rotational Proxies: " << rn << std::endl;
 
   }
@@ -657,8 +787,8 @@ namespace subspace {
 	RHS_hp[i+2] = constraint_points[j][2];
       }
       
-      int N = inf? 42: NUM_OF_ITERATION;
-      //int N=1;
+      //int N = inf? 42: NUM_OF_ITERATION;
+      int N=1;
 
       for (int i=0; i<N; ++i) {
 	reduced_linsolve();

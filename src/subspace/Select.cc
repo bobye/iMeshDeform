@@ -190,17 +190,24 @@ namespace subspace {
     return false;
   }
 
-  /*
-  void HandlerSelect::add_rigid(bool * selected) {
-    int new_rigid_count=0, rt_count = rigids.size();
-    rigids.push_back(std::vector<bool>(vn)); 
-    for (int i=0; i<vn; ++i) 
-      if (selected[i] && !is_vertex_rigid[i])
-	new_rigid_count += (is_vertex_rigid[i] = rigids[rt_count][i] = true);
 
-    std::cout << "Add rigid transformer (#vert " << new_rigid_count << ")" << std::endl;
+  static int rigids_count = 0;
+  static std::vector<int> rigids;
+  void HandlerSelect::add_rigid(bool * selected) {
+    if (rigids.empty()) rigids.resize(vn, 0);
+    ++rigids_count;
+    int new_rigid_count = 0;
+    for (int i=0; i<vn; ++i) 
+      if (selected[i]) { rigids[i] = rigids_count; ++new_rigid_count;}
+
+
+    std::cout << "Add " << rigids_count << "th rigid transformer (#vert " << new_rigid_count << ")" << std::endl;
+
+    std::ofstream fid("default.id");
+    for (int i=0; i<vn; ++i) fid << rigids[i] << std::endl;
+    fid.close();
   }
-  */
+
 
   static std::vector<Point> constraint_points_buffer;
 

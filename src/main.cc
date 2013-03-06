@@ -16,22 +16,28 @@ int main(int argc, char *argv[])
   int vn = mesh->vertices.size();
 
   // load linear proxies
-  std::fstream fid(argv[2]); std::vector<int> group_ids1; group_ids1.resize(vn);
+  std::fstream fid(argv[2]); std::vector<int> group_ids1(vn);
   if (!fid) exit(1); 
   for (int i=0; i<vn; ++i) fid >> group_ids1[i];
   fid.close();  
 
   // load rotational proxies
-  fid.open(argv[3]); std::vector<int> group_ids2; group_ids2.resize(vn);
+  fid.open(argv[3]); std::vector<int> group_ids2(vn);
   if (!fid) exit(1); 
   for (int i=0; i<vn; ++i) fid >> group_ids2[i];
   fid.close();  
+
+  fid.open(argv[4]); std::vector<int> group_ids3(vn);
+  if (!fid) exit(1); 
+  for (int i=0; i<vn; ++i) fid >> group_ids3[i];
+  fid.close();  
+
 
   Subspace ss_solver(argc,argv);
   ss_solver.init(mesh);
   ss_solver.load_linear_proxies_vg(group_ids1);
   ss_solver.load_rotational_proxies(group_ids2);
-
+  ss_solver.load_controls(group_ids3);
 
 #ifndef UI_DEBUG
   ss_solver.solve();
@@ -54,3 +60,9 @@ int main(int argc, char *argv[])
   scene.view();
   return 0;
 }
+
+
+
+
+
+

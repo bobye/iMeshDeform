@@ -616,8 +616,8 @@ namespace subspace {
 	current_state &= ~LOCK_MODE_SPEC;
 	spec_info = "";
 	// add rigid transformer
-	//currentScene->handsel->add_rigid(((VertSelect*) currentScene->context)->selected);
-	//glutPostRedisplay();
+	currentScene->handsel->add_rigid(((VertSelect*) currentScene->context)->selected);
+	glutPostRedisplay();
       }
       else if (key == 'h' && (current_state & LOCK_MODE_SPEC)) {
 	current_state &= ~LOCK_MODE_SPEC;
