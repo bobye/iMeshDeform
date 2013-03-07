@@ -229,7 +229,8 @@ namespace subspace {
     assert(vn == group_ids.size());
     clock_start("Preparing control layer");
 
-    int M = 0, cn = 0;
+    int M = 0;
+    cn = 0;
     for (int i=0; i<vn; ++i)
       if (cn <= group_ids[i] && group_ids[i] != 0) cn = group_ids[i];
       else if(group_ids[i] == 0) ++M;
@@ -246,8 +247,6 @@ namespace subspace {
 
 
     MatCreateSeqAIJ(PETSC_COMM_SELF, N, cn + 4*vn + 3*ln, 0, nnz, &Ctrl2Geom); //delete [] nnz;
-
-    std::vector<int> tmp_count(N, 0);
 
     const PetscScalar one = 1;
     for (int i=0, j=0; i<vn; ++i) 
@@ -787,8 +786,8 @@ namespace subspace {
 	RHS_hp[i+2] = constraint_points[j][2];
       }
       
-      //int N = inf? 42: NUM_OF_ITERATION;
-      int N=1;
+      int N = inf? 42: NUM_OF_ITERATION;
+      //int N=1;
 
       for (int i=0; i<N; ++i) {
 	reduced_linsolve();

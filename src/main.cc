@@ -27,6 +27,8 @@ int main(int argc, char *argv[])
   for (int i=0; i<vn; ++i) fid >> group_ids2[i];
   fid.close();  
 
+  //std::vector<int> group_ids3(vn, 0);
+
   fid.open(argv[4]); std::vector<int> group_ids3(vn);
   if (!fid) exit(1); 
   for (int i=0; i<vn; ++i) fid >> group_ids3[i];
