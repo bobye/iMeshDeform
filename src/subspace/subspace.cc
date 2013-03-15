@@ -218,9 +218,19 @@ namespace subspace {
 
   void Subspace::load_rotational_proxies(std::vector<int> &group_ids) {
     assert(vn == group_ids.size());
-    
+
+    int rn_hard =0, rn_soft =0;
+
+    for (int i=0; i<vn; ++i) {
+      if (rn_hard <= -group_ids[i]) rn_hard = -group_ids[i];
+      if (rn_soft <= group_ids[i]) rn_soft = group_ids[i] + 1;
+    }    
+
     for (int i=0; i<vn; ++i)
-      if (rn <= (rotational_proxies[i] = group_ids[i])) rn = group_ids[i]+1;
+      if (group_ids[i] >= 0) rotational_proxies[i] = group_ids[i];
+      else rotational_proxies[i] = - group_ids[i] + rn_soft -1; 
+
+    rn = rn_hard + rn_soft;
     rn9 = 9*rn;
     
   }
