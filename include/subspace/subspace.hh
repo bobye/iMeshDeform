@@ -18,10 +18,10 @@ namespace subspace {
   class Subspace {
   protected:
     // mesh type data pointer
-    Mesh* mesh;
+    vMesh* mesh;
 
     // assembly large sparse matrix for solving subspaces
-    void assembly();
+    //void assembly();
     
     // allocate subspace internal datas
     void allocate();
@@ -32,9 +32,9 @@ namespace subspace {
   public:
     //void add_rigid_constraint(int );
 
-    Subspace(int, char**);
+    Subspace(int, char**, vMesh*);
     ~Subspace();
-    void init(Mesh *);
+
     
     // offline routines
     // vg: vertices group

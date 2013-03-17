@@ -150,7 +150,7 @@ namespace subspace {
   /*****************************************************************************/
   // Display layer
 
-  static _SS_SCALAR *vertices;
+  static _SS_SCALAR *points;
   //static _SS_SCALAR *RotNorm;
   //static float *vertices_f;
   //#define MAX_CONSTRAINT_NUMBER   100
@@ -158,9 +158,11 @@ namespace subspace {
 
 
   /*****************************************************************************/
-  Subspace::Subspace(int argc, char **argv) {
+  Subspace::Subspace(int argc, char **argv, vMesh* pm) {
     on_the_fly = true;
     PetscInitialize(&argc,&argv,(char *)0,PETSC_NULL);
+    mesh = pm;
+    mesh->initialize_subspace_solver();
   };
 
   void Subspace::set_off_fly() {
@@ -168,33 +170,31 @@ namespace subspace {
   }
 
 
-  void Subspace::init(Mesh * pm) {
-    mesh = pm;
+  void TriangleMesh::initialize_subspace_solver() {
 
-    mesh->need_normals();
-    mesh->need_neighbors();
-    mesh->need_adjacentfaces();
-    mesh->need_pointareas();
+    need_normals();
+    need_neighbors();
+    need_adjacentfaces();
+    need_pointareas();
     //mesh->need_curvatures();
 
     //    std::cout << mesh->normals[10] << mesh->pdir1[10] << mesh->pdir2[10] << std::endl; exit(0);
 
-    vn = mesh->vertices.size(); vn3 = 3*vn;
+    vn = vertices.size(); vn3 = 3*vn;
     rotational_proxies.resize(vn);
-    vertices = _SS_MALLOC_SCALAR(vn3);
+    points = _SS_MALLOC_SCALAR(vn3);
     //    vertices_f = new float[vn3];
 
     int count=0;
     for (int i=0; i<vn; ++i) 
-      if (!isinf(mesh->pointareas[i]))
-	{ totarea += mesh->pointareas[i]; ++count ;}
+      if (!isinf(pointareas[i]))
+	{ totarea += pointareas[i]; ++count ;}
     avgarea = totarea/count;
 #ifdef _SS_SHOW_DEBUG
     printf("Total area estimation: %e\n", totarea);
 #endif
   }
 
-  
 
   void Subspace::load_linear_proxies_vg(std::vector<int> &group_ids) {
     assert(vn == group_ids.size());
@@ -274,7 +274,7 @@ namespace subspace {
 	int mx[4] = {m, m+3, m+4, m+5};
 	int my[4] = {m+1, m+6, m+7, m+8};
 	int mz[4] = {m+2, m+9, m+10, m+11};	
-	PetscScalar mv[4] = {1, mesh->vertices[i][0], mesh->vertices[i][1], mesh->vertices[i][2]};
+	PetscScalar mv[4] = {1, mesh->vertices_tpd[3*i], mesh->vertices_tpd[3*i+1], mesh->vertices_tpd[3*i+2]};
 
 	MatSetValues(Ctrl2Geom, 1, &ix, 4, mx, mv, INSERT_VALUES);
 	MatSetValues(Ctrl2Geom, 1, &iy, 4, my, mv, INSERT_VALUES);
@@ -381,10 +381,10 @@ namespace subspace {
     return ierr;   
   }
 
-  void Subspace::assembly() {
+  void TriangleMesh::compute_subspace_assembly() {
     int N = 7*vn + 3*ln; 
     int *nnz = new int[N];
-    for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (mesh->neighbors[i/3].size()+1) + 3*ln;
+    for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (neighbors[i/3].size()+1) + 3*ln;
     for (int i=0; i<4*vn; ++i) nnz[vn3 + i] = 4;// + mesh->neighbors[i/4].size();
     for (int i=0; i<ln3; ++i)  nnz[7*vn + i] = 1;
 
@@ -414,22 +414,22 @@ namespace subspace {
     for (int i = 0; i<vn; ++i) {
       //trimesh::vec &normal = mesh->normals[i], &pdir1 = mesh->pdir1[i], &pdir2 = mesh->pdir2[2];
 
-      std::vector<int> &faces = mesh->adjacentfaces[i];
-      int fn = faces.size();
+      std::vector<int> &nfaces = adjacentfaces[i];
+      int fn = nfaces.size();
 
-      PetscScalar area = mesh->pointareas[i];
+      PetscScalar area = pointareas[i];
       if (isinf(area) || area < 1E-3 * avgarea) area = 1E-3 * avgarea;
 
       for (int j= 0; j<fn; ++j) {
-	int v0 = mesh->faces[faces[j]][0], v1 = mesh->faces[faces[j]][1], v2 = mesh->faces[faces[j]][2];
-	Vector v01 = mesh->vertices[v0] - mesh->vertices[v1];
-	Vector v12 = mesh->vertices[v1] - mesh->vertices[v2];
-	Vector v20 = mesh->vertices[v2] - mesh->vertices[v0];
+	int v0 = faces[nfaces[j]][0], v1 = faces[nfaces[j]][1], v2 = faces[nfaces[j]][2];
+	Vector v01 = vertices[v0] - vertices[v1];
+	Vector v12 = vertices[v1] - vertices[v2];
+	Vector v20 = vertices[v2] - vertices[v0];
 	
 	
-	double tan2 = std::tan(_SS_PI/2 - mesh->cornerangle(faces[j], 2)); 	
-	double tan0 = std::tan(_SS_PI/2 - mesh->cornerangle(faces[j], 0));	
-	double tan1 = std::tan(_SS_PI/2 - mesh->cornerangle(faces[j], 1));
+	double tan2 = std::tan(_SS_PI/2 - cornerangle(nfaces[j], 2)); 	
+	double tan0 = std::tan(_SS_PI/2 - cornerangle(nfaces[j], 0));	
+	double tan1 = std::tan(_SS_PI/2 - cornerangle(nfaces[j], 1));
 
 	mat_edge_assembly_VS(v0, v1, i, std::fabs(tan2)/avgarea, v01);
 	mat_edge_assembly_VS(v1, v2, i, std::fabs(tan0)/avgarea, v12);
@@ -442,7 +442,7 @@ namespace subspace {
        */
 
       const PetscInt idq[4] = {vn3+ 4*i, vn3 + 4*i+1, vn3 + 4*i+2, vn3 + 4*i+3}; 
-      Vector n = mesh->normals[i];
+      Vector n = normals[i];
       PetscScalar vqs[16] = {1, 0, 0, 0,
 			     0, n[2]*n[2]+n[1]*n[1], -n[0]*n[1], -n[0]*n[2],
 			     0, -n[1]*n[0], n[0]*n[0]+n[2]*n[2], -n[1]*n[2],
@@ -482,6 +482,24 @@ namespace subspace {
   }
 
 
+  void TriangleMesh::extract_display_layer() {
+    Vec tmp; MatGetVecs(VS, &tmp, PETSC_NULL);
+
+     for (int i=0; i<ln3; ++i) {
+      PetscScalar *buffer;
+      MatMult(Ctrl2Geom, SL[i], tmp);
+      VecGetArray(tmp, &buffer);
+      for (int j=0; j<vn3; ++j) SL_V[vn3*i+j] = buffer[j];
+    }
+    for (int i=0; i<rn9; ++i) {
+      PetscScalar *buffer;
+      MatMult(Ctrl2Geom, SR[i], tmp);
+      VecGetArray(tmp, &buffer);
+      for (int j=0; j<vn3; ++j) SR_V[vn3*i+j] = buffer[j];
+    }
+    VecDestroy(&tmp);
+  }
+
 
   void Subspace::solve() {
     //clock_start("Solving reduced model");
@@ -489,7 +507,8 @@ namespace subspace {
     // assembly matrix
     clock_start("Assembly Physical layer");
     allocate();
-    assembly();
+    //assembly();
+    mesh->compute_subspace_assembly();
     clock_end();
     //    MatAXPY(VS, COEFF_REG, RE, DIFFERENT_NONZERO_PATTERN);
     /**************************************************/
@@ -548,21 +567,7 @@ namespace subspace {
     /**************************************************/
     // copy subspace solution data to global array
     clock_start("Preparing display layer");
-    Vec tmp; MatGetVecs(VS, &tmp, PETSC_NULL);
-
-     for (int i=0; i<ln3; ++i) {
-      PetscScalar *buffer;
-      MatMult(Ctrl2Geom, SL[i], tmp);
-      VecGetArray(tmp, &buffer);
-      for (int j=0; j<vn3; ++j) SL_V[vn3*i+j] = buffer[j];
-    }
-    for (int i=0; i<rn9; ++i) {
-      PetscScalar *buffer;
-      MatMult(Ctrl2Geom, SR[i], tmp);
-      VecGetArray(tmp, &buffer);
-      for (int j=0; j<vn3; ++j) SR_V[vn3*i+j] = buffer[j];
-    }
-    VecDestroy(&tmp);
+    mesh->extract_display_layer();
     clock_end();
     /**************************************************/
     clock_start("Precomputing online dense system");
@@ -664,7 +669,7 @@ namespace subspace {
 
     _SS_FREE(Rot); _SS_FREE(Rot_b); //_SS_FREE(RotNorm);
 
-    _SS_FREE(vertices);
+    _SS_FREE(points);
     PetscFinalize();
     //delete [] vertices_f;
   }
@@ -765,12 +770,12 @@ namespace subspace {
 
   }
 
-  void update_mesh(Mesh *mesh) {
+  void update_mesh(vMesh *mesh) {
     //update mesh vertices
     // reduced variable to mesh vertices, often computational expensive
     //    _SS_PROFILE(
-    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, vertices, 1);
-    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, vertices, 1);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, points, 1);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, points, 1);
     //		)
     /*
     for (int i=0, j=0; i<vn; ++i, j+=3)
@@ -780,9 +785,9 @@ namespace subspace {
 			 3, vn, 3,
 			 1, 
 			 GRot, 3, 
-			 vertices, 3, 
+			 points, 3, 
 			 0, 
-			 mesh->vertices_tightpacked, 3);
+			 mesh->vertices_tpd, 3);
    
   }
 
@@ -809,7 +814,7 @@ namespace subspace {
 
       //recompute normals
 
-      if (inf) { mesh->recompute_normals_tightpacked(); }
+      if (inf) { mesh->recompute_normals(); }
     }
   }
   void Subspace::terminate() {

@@ -2,28 +2,24 @@
 #include <string.h>
 
 namespace subspace {
-  Object::Object(Mesh *pmesh) : mesh(pmesh){
+  Object::Object(TriangleMesh *pmesh) : mesh(pmesh){
 
     //compute bounding box
-    mesh->need_tstrips();
-    mesh->need_bsphere();
-    size = 2*mesh->bsphere.r;
-    center = mesh->bsphere.center;
+    pmesh->need_tstrips();
+    pmesh->need_bsphere();
+    size = 2*pmesh->bsphere.r;
+    center = pmesh->bsphere.center;
 
     xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
 
+    glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
+    glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
+
   }
 
 
-  void Object::register_mesh() {
-    //load geometric information 
-    mesh->allocate_data_tightpacked();
-
-    glNormalPointer(GL_FLOAT, 0, mesh->normals_tightpacked);
-    glVertexPointer(3, GL_FLOAT, 0, mesh->vertices_tightpacked);    
-  }
-
-  void draw_tstrips(const Mesh *themesh)
+  //  void draw_tstrips(const Mesh *themesh)
+  void TriangleMesh::draw()
   {
     static bool use_glArrayElement = false;
     static bool tested_renderer = false;
@@ -33,8 +29,8 @@ namespace subspace {
       tested_renderer = true;
     }
 
-    const int *t = &themesh->tstrips[0];
-    const int *end = t + themesh->tstrips.size();
+    const int *t = &tstrips[0];
+    const int *end = t + tstrips.size();
     if (use_glArrayElement) {
       while (likely(t < end)) {
 	glBegin(GL_TRIANGLE_STRIP);
@@ -69,7 +65,8 @@ namespace subspace {
   
     glMultMatrixf(xf);	  
     //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
-    draw_tstrips(mesh);
+    //draw_tstrips(mesh);
+    mesh->draw();
     //glDisable(GL_BLEND);
     //glDepthMask(GL_TRUE);
     glDisable(GL_COLOR_MATERIAL);
@@ -79,7 +76,8 @@ namespace subspace {
     glDisable(GL_LIGHTING);
     glMultMatrixf(xf);	  
     //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
-    draw_tstrips(mesh);
+    //draw_tstrips(mesh);
+    mesh->draw();
     glEnable(GL_LIGHTING);
   }
   

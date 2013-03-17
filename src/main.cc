@@ -34,27 +34,28 @@ int main(int argc, char *argv[])
   for (int i=0; i<vn; ++i) fid >> group_ids3[i];
   fid.close();  
 
-
-  Subspace ss_solver(argc,argv);
-  ss_solver.init(mesh);
+  // initialize subspace solver w.r.t mesh
+  Subspace ss_solver(argc,argv, mesh);
+  // load proxies and controls.
   ss_solver.load_linear_proxies_vg(group_ids1);
   ss_solver.load_rotational_proxies(group_ids2);
   ss_solver.load_controls(group_ids3);
 
 #ifndef UI_DEBUG
-  ss_solver.solve();
+  ss_solver.solve(); // solve for subspace model
 #else
-  ss_solver.read("scene.ss");
+  ss_solver.read("scene.ss"); // load subspace model
 #endif
 
 #ifdef OFF_THE_FLY  
   ss_solver.set_off_fly();//deform mesh off the fly
 #endif
 
+  // initialize scenes to display, and deform object interactively
   Scene scene(argc, argv);
+  
+  Object object(mesh);
 
-  Object object = Object(mesh);
-  object.register_mesh();
   scene.bind(&object);
   scene.bind(&ss_solver); // bind mesh to subspace solver
 

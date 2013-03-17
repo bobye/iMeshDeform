@@ -16,8 +16,9 @@ namespace subspace {
   std::vector< PetscScalar *> eigvectors;
   std::vector<Vec> eigVecs;
 
-  LB::LB(int argc, char** argv) {
+  LB::LB(int argc, char** argv, vMesh* mesh) {
     SlepcInitialize(&argc,&argv,(char *)0,PETSC_NULL);
+    mesh->compute_LB_operator();
   }
 
   LB::~LB(){
@@ -29,12 +30,6 @@ namespace subspace {
     SlepcFinalize();
   }
 
-  void LB::init(Mesh* pm) {
-    mesh = pm;
-    mesh->need_neighbors();
-    mesh->need_faceareas();
-    mesh->need_edgelengths();
-  }
 
 const PetscInt J1[9]
 = {2, -1, -1, 
@@ -51,11 +46,15 @@ const PetscInt J3[9]
 const PetscInt J4[9]
 = {2, 1, 1, 1, 2, 1, 1, 1, 2};
 
-  void LB::compute_operator(){
-    mat_size = mesh->vertices.size();
+  void TriangleMesh::compute_LB_operator(){
+    need_neighbors();
+    need_faceareas();
+    need_edgelengths();
+
+    mat_size = vertices.size();
     PetscInt *nnz = new PetscInt[mat_size];
     for (PetscInt i=0;i<mat_size;++i)
-      nnz[i]=mesh->neighbors[i].size() +1;
+      nnz[i]=neighbors[i].size() +1;
 
     MatCreateSeqAIJ(PETSC_COMM_SELF, mat_size, mat_size, 0, nnz, &mass_mat);
     MatCreateSeqAIJ(PETSC_COMM_SELF, mat_size, mat_size, 0, nnz, &stiff_mat);
@@ -63,17 +62,17 @@ const PetscInt J4[9]
     //MatSetOption(mass_mat, MAT_IGNORE_LOWER_TRIANGULAR, PETSC_TRUE);
     //MatSetOption(stiff_mat, MAT_IGNORE_LOWER_TRIANGULAR, PETSC_TRUE);
 
-    for (PetscInt i=0; i<mesh->faces.size(); ++i) {
-      float &l1 = mesh->edgelengths[i][0],
-	&l2 = mesh->edgelengths[i][1],
-	&l3 = mesh->edgelengths[i][2];
+    for (PetscInt i=0; i<faces.size(); ++i) {
+      float &l1 = edgelengths[i][0],
+	&l2 = edgelengths[i][1],
+	&l3 = edgelengths[i][2];
 
-      int *idx = mesh->faces[i];
+      int *idx = faces[i];
       PetscScalar mass[9], stiff[9];
 
       for (PetscInt j = 0; j < 9; ++j) {
-	mass[j]= mesh->faceareas[i]*J4[j]/12.;
-	stiff[j]= (l1*l1*J1[j]+l2*l2*J2[j]+l3*l3*J3[j])/(8.* mesh->faceareas[i]);
+	mass[j]= faceareas[i]*J4[j]/12.;
+	stiff[j]= (l1*l1*J1[j]+l2*l2*J2[j]+l3*l3*J3[j])/(8.* faceareas[i]);
       }
       MatSetValues(stiff_mat, 3, idx, 3, idx, stiff, ADD_VALUES);
       MatSetValues(mass_mat, 3, idx, 3, idx, mass, ADD_VALUES);	       

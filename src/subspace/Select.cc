@@ -2,7 +2,7 @@
 
 namespace subspace {  
   VertSelect::VertSelect(Object * obj) {
-    object = obj; vn = obj->mesh->vertices.size();
+    object = obj; vn = obj->mesh->numberofvertices;
 
     selected = new bool [vn];
     buffer_selected = new bool [vn];
@@ -123,7 +123,7 @@ namespace subspace {
 
   HandlerSelect::HandlerSelect(Object * obj) {
     object = obj; 
-    vn = obj->mesh->vertices.size();
+    vn = obj->mesh->numberofvertices;
     //is_vertex_rigid.resize(vn);
 
     xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
@@ -224,7 +224,7 @@ namespace subspace {
     }
 
     Point constraint_center; 
-    float* &vertices_p = object->mesh->vertices_tightpacked;
+    float* &vertices_p = object->mesh->vertices_tpd;
     for (int i=0; i<vn; ++i) {
       constraints[rt_count][i]/=vertex_count;
       constraint_center += constraints[rt_count][i]*

@@ -20,15 +20,15 @@ namespace subspace {
   class Object : public Geometry {
   public:
     // mesh data
-    Mesh *mesh;    
+    vMesh *mesh;    
     // bounding box
     GLfloat bbox[6], size;
     
-    Object(Mesh*);
-
+    Object(TriangleMesh*);
+    //Object(TetrahedralMesh*);
 
     // render!
-    void register_mesh();
+    //void register_mesh();
     void back_draw();
     void draw();
     //    friend class Subspace;

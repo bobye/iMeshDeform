@@ -5,19 +5,14 @@
 namespace subspace {
   class LB {
   protected:
-    // geometry
-    Mesh* mesh;
+
   public:
-    LB (int, char**);
+    LB (int, char**, vMesh*);
     ~LB();
     void init(Mesh*);
 
-    // compute LB operator over mesh: stiff and mass matrices
-    void compute_operator();
     // solve eigenpairs of LB
     void solve_eigen();
-    // landmark based clustering
-    void clustering();
   };
 }
 
