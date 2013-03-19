@@ -19,7 +19,6 @@ Libraries:
 Env variables:
 
 	source /opt/intel/bin/compilervars.sh intel64
-	export PATH=$PATH:/usr/local/texlive/2012/bin/x86_64-linux
 	export SLEPC_DIR=/home/bobye/pub/slepc/slepc-3.3-p3
 	export PETSC_DIR=/home/bobye/pub/petsc/petsc-3.3-p5
 	export PETSC_ARCH=linux-gnu-c-debug
