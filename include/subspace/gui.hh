@@ -25,7 +25,7 @@ namespace subspace {
     GLfloat bbox[6], size;
     
     Object(TriangleMesh*);
-    //Object(TetrahedralMesh*);
+    Object(TetrahedronMesh*);
 
     // render!
     //void register_mesh();

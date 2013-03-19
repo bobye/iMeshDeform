@@ -10,17 +10,28 @@ namespace subspace {
     size = 2*pmesh->bsphere.r;
     center = pmesh->bsphere.center;
 
-    xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
+    xf = XForm::identity();
 
     glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
     glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
 
   }
 
+  Object::Object(TetrahedronMesh *pmesh) : mesh(pmesh) {
+    //compute bounding box
+    pmesh->surface.need_tstrips();
+    pmesh->surface.need_bsphere();
+    size = 2*pmesh->surface.bsphere.r;
+    center = pmesh->surface.bsphere.center;
 
-  //  void draw_tstrips(const Mesh *themesh)
-  void TriangleMesh::draw()
-  {
+    xf = XForm::identity();
+    
+    glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
+    glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
+    
+  }
+
+  void draw_tstrips(Mesh2d *mesh) {
     static bool use_glArrayElement = false;
     static bool tested_renderer = false;
     if (!tested_renderer) {
@@ -29,8 +40,8 @@ namespace subspace {
       tested_renderer = true;
     }
 
-    const int *t = &tstrips[0];
-    const int *end = t + tstrips.size();
+    const int *t = &mesh->tstrips[0];
+    const int *end = t + mesh->tstrips.size();
     if (use_glArrayElement) {
       while (likely(t < end)) {
 	glBegin(GL_TRIANGLE_STRIP);
@@ -48,6 +59,16 @@ namespace subspace {
     }
   }
 
+  //  void draw_tstrips(const Mesh *themesh)
+  void TriangleMesh::draw()
+  {
+    draw_tstrips(this);
+  }
+
+  void TetrahedronMesh::draw()
+  {
+    draw_tstrips(&surface);
+  }
 
   void Object::draw() {
 

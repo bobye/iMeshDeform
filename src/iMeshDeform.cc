@@ -7,6 +7,8 @@ using namespace subspace;
 
 //#define UI_DEBUG
 //#define OFF_THE_FLY
+typedef TriangleMesh Mesh;
+    
 
 int main(int argc, char *argv[])
 {

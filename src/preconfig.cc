@@ -3,6 +3,9 @@
 
 using namespace subspace;
 
+typedef TriangleMesh Mesh;
+    
+
 int main(int argc, char* argv[]) {
   Mesh *mesh = (Mesh *) Mesh::read(argv[1]);
   if (!mesh) exit(1);

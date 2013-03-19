@@ -3,6 +3,7 @@
 
 #include "XForm.h"
 #include "TriMesh.h"
+#include "TetMesh.h"
 #include <vector>
 
 namespace subspace {
@@ -10,7 +11,7 @@ namespace subspace {
   typedef trimesh::point Point;
   typedef trimesh::vec   Vector;
   typedef trimesh::TriMesh Mesh2d;
-
+  typedef trimesh::TetMesh Mesh3d;
   typedef trimesh::fxform XForm;
   
 
@@ -25,7 +26,7 @@ namespace subspace {
     float *normals_tpd;
     int numberofvertices;    
     
-    // geometry of elements
+    // geometry of elements (optional)
     float *vertices_ele;
 
     // virtual functions:
@@ -77,11 +78,32 @@ namespace subspace {
     void extract_display_layer();
   };
 
-  /*
-  class TetrahedralMesh : public vMesh {
+
+  class TetrahedronMesh : public vMesh, public Mesh3d {
+  public:
+    static TetrahedronMesh *read(const char* filename) {
+      TetrahedronMesh *mesh = new TetrahedronMesh();
+      if (read_helper(filename,mesh)) {
+	mesh->numberofvertices = mesh->surface.vertices.size();
+	mesh->surface.allocate_data_tightpacked();// to be called only once!
+	mesh->vertices_tpd = mesh->surface.vertices_tightpacked;//bind pointer to geometric data
+	mesh->normals_tpd  = mesh->surface.normals_tightpacked;
+	return mesh;
+      }
+      delete mesh;
+      return NULL;
+    }
+
+    void draw();
+    void recompute_normals() { surface.recompute_normals_tightpacked();}
+    void write(const char* filename) {};
+
+    void compute_LB_operator() {};
+
+    void initialize_subspace_solver() {};
+    void compute_subspace_assembly() {};
+    void extract_display_layer() {};
   };
-  */
-  typedef TriangleMesh Mesh;
-    
+
 }
 #endif /* _GEOMETRY_H_ */

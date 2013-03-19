@@ -9,7 +9,8 @@ namespace subspace {
   public:
     LB (int, char**, vMesh*);
     ~LB();
-    void init(Mesh*);
+    void init(TriangleMesh*);
+    void init(TetrahedronMesh*);
 
     // solve eigenpairs of LB
     void solve_eigen();
