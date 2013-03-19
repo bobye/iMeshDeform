@@ -11,9 +11,8 @@ Prerequisites:
 Libraries:
 
  - OpenGL + GLUT
- - PETSc 
-   + sparse direct solver package, e.g. mumps/umfpack
-   + SLEPc
+ - PETSc with external sparse direct solver, e.g. mumps/umfpack
+ - SLEPc
  - Intel MKL [doc](http://software.intel.com/en-us/articles/intel-math-kernel-library-documentation)
  - [trimesh2++](https://github.com/bobye/trimesh2plus)
 
