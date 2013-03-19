@@ -11,10 +11,12 @@ Prerequisites:
 Libraries:
 
  - OpenGL + GLUT
- - PETSc + mumps/umfpack
- - SLEPc
+ - PETSc with additional direct solver package, e.g. mumps/umfpack
+ - SLEPc with PETSc pre-installed
  - Intel MKL [doc](http://software.intel.com/en-us/articles/intel-math-kernel-library-documentation)
+   for Blas/Lapack support with C interface
  - [trimesh2++](https://github.com/bobye/trimesh2plus)
+   for triangle and tetrahedron mesh data structure
 
 Env variables:
 
@@ -33,3 +35,4 @@ Env variables:
 How to run:
 
 	./bin/iMeshDeform test2.off test2_cluster1.id test2_rotation.id test2_rigid.id -pc_factor_mat_solver_package umfpack
+	./bin/preconfig test2.off
