@@ -7,15 +7,25 @@ using namespace subspace;
 
 //#define UI_DEBUG
 //#define OFF_THE_FLY
+#define USE_TRIANGLE
+//#define USE_TETRAHEDRON
+
+#ifdef USE_TRIANGLE
 typedef TriangleMesh Mesh;
-    
+#elif defined USE_TETRAHEDRON
+typedef TetrahedronMesh Mesh;    
+#endif
 
 int main(int argc, char *argv[])
 {
   // read mesh
   Mesh *mesh = (Mesh *) Mesh::read(argv[1]);
   if (!mesh) exit(1);
+#ifdef USE_TRIANGLE
   int vn = mesh->vertices.size();
+#elif defined USE_TETRAHEDRON
+  int vn = mesh->nodes.size();
+#endif
 
   // load linear proxies
   std::fstream fid(argv[2]); std::vector<int> group_ids1(vn);

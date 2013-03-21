@@ -18,6 +18,7 @@ namespace subspace {
 
   LB::LB(int argc, char** argv, vMesh* mesh) {
     SlepcInitialize(&argc,&argv,(char *)0,PETSC_NULL);
+    dimension = mesh->dimension;
     mesh->compute_LB_operator();
   }
 
@@ -217,7 +218,10 @@ const PetscInt K5[16]
     fid << mat_size << " " << nconv << std::endl;
     for (int i = 0; i < mat_size; ++i) {
       for (int j = 0; j < nconv; ++j) 
-	fid << eigvectors[j][i]/std::sqrt(eigvalues[j]) << " ";
+	//if (dimension == 2) 
+	if (1)
+	  {fid << eigvectors[j][i]/std::sqrt(eigvalues[j]) << " ";}
+	else if (dimension == 3) {fid << eigvectors[j][i]/std::exp(std::log(eigvalues[j])/3.) << " ";}
       fid << std::endl;
     }
     fid.close();

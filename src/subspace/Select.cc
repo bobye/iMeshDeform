@@ -2,7 +2,9 @@
 
 namespace subspace {  
   VertSelect::VertSelect(Object * obj) {
-    object = obj; vn = obj->mesh->numberofvertices;
+    object = obj; 
+    vn = obj->mesh->numberofvertices;
+
 
     selected = new bool [vn];
     buffer_selected = new bool [vn];
@@ -124,6 +126,7 @@ namespace subspace {
   HandlerSelect::HandlerSelect(Object * obj) {
     object = obj; 
     vn = obj->mesh->numberofvertices;
+    pn = obj->mesh->numberofpoints;
     //is_vertex_rigid.resize(vn);
 
     xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
@@ -213,7 +216,7 @@ namespace subspace {
 
   void HandlerSelect::add_constraint(bool * selected) {
     int vertex_count=0, rt_count = constraints.size();
-    constraints.push_back(std::vector<float>(vn)); 
+    constraints.push_back(std::vector<float>(pn, 0)); 
     for (int i=0; i<vn; ++i)       
       vertex_count += (constraints[rt_count][i] = selected[i]);
 

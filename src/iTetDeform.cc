@@ -7,14 +7,26 @@ using namespace subspace;
 
 //#define UI_DEBUG
 //#define OFF_THE_FLY
+//#define USE_TRIANGLE
+#define USE_TETRAHEDRON
+
+#ifdef USE_TRIANGLE
+typedef TriangleMesh Mesh;
+#elif defined USE_TETRAHEDRON
+typedef TetrahedronMesh Mesh;    
+#endif
 
 int main(int argc, char *argv[])
 {
   // read mesh
-  TetrahedronMesh *mesh = (TetrahedronMesh *) TetrahedronMesh::read(argv[1]);
+  Mesh *mesh = (Mesh *) Mesh::read(argv[1]);
   if (!mesh) exit(1);
-  /*
+#ifdef USE_TRIANGLE
   int vn = mesh->vertices.size();
+#elif defined USE_TETRAHEDRON
+  int vn = mesh->nodes.size();
+#endif
+
   // load linear proxies
   std::fstream fid(argv[2]); std::vector<int> group_ids1(vn);
   if (!fid) exit(1); 
@@ -37,9 +49,9 @@ int main(int argc, char *argv[])
   // initialize subspace solver w.r.t mesh
   Subspace ss_solver(argc,argv, mesh);
   // load proxies and controls.
-  ss_solver.load_linear_proxies_vg(group_ids1);
-  ss_solver.load_rotational_proxies(group_ids2);
-  ss_solver.load_controls(group_ids3);
+  mesh->load_linear_proxies_vg(group_ids1);
+  mesh->load_rotational_proxies(group_ids2);
+  mesh->load_controls(group_ids3);
 
 #ifndef UI_DEBUG
   ss_solver.solve(); // solve for subspace model
@@ -50,14 +62,14 @@ int main(int argc, char *argv[])
 #ifdef OFF_THE_FLY  
   ss_solver.set_off_fly();//deform mesh off the fly
 #endif
-  */
+
   // initialize scenes to display, and deform object interactively
   Scene scene(argc, argv);
   
   Object object(mesh);
 
   scene.bind(&object);
-  //scene.bind(&ss_solver); // bind mesh to subspace solver
+  scene.bind(&ss_solver); // bind mesh to subspace solver
 
 
   scene.view();

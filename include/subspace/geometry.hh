@@ -21,14 +21,15 @@ namespace subspace {
     // generic class for triangle and tetrahedral mesh 
     // which serves as a communicator with functional package, e.g. GUI, Subspace, LB
   public:
+    int dimension;
     // geometry of surface mesh
     float *vertices_tpd;//positions of vertices to be displayed
     float *normals_tpd;
-    int numberofvertices;    
+    int numberofvertices, numberofpoints;    
     
     // geometry of elements (optional)
     float *vertices_ele;
-
+    
 
     std::vector<double> linear_proxies;
     // load linear_proxies via vertices group
@@ -69,13 +70,16 @@ namespace subspace {
   class TriangleMesh : public vMesh, public Mesh2d {
     // TriangleMesh is inherited from both vMesh and Mesh2d
   public:
+
     static TriangleMesh *read(const char* filename) {
       TriangleMesh *mesh = new TriangleMesh();
       if (read_helper(filename, mesh)) {
 	mesh->numberofvertices = mesh->vertices.size();
+	mesh->numberofpoints = mesh->numberofvertices;
 	mesh->allocate_data_tightpacked();// to be called only once!
 	mesh->vertices_tpd = mesh->vertices_tightpacked;//bind pointer to geometric data
 	mesh->normals_tpd  = mesh->normals_tightpacked;
+	mesh->dimension = 2;
 	return mesh;
       }
       delete mesh;
@@ -102,13 +106,16 @@ namespace subspace {
 
   class TetrahedronMesh : public vMesh, public Mesh3d {
   public:
+
     static TetrahedronMesh *read(const char* filename) {
       TetrahedronMesh *mesh = new TetrahedronMesh();
       if (read_helper(filename,mesh)) {
 	mesh->numberofvertices = mesh->surface.vertices.size();
+	mesh->numberofpoints = mesh->nodes.size();
 	mesh->surface.allocate_data_tightpacked();// to be called only once!
 	mesh->vertices_tpd = mesh->surface.vertices_tightpacked;//bind pointer to geometric data
 	mesh->normals_tpd  = mesh->surface.normals_tightpacked;
+	mesh->dimension = 3;
 	return mesh;
       }
       delete mesh;

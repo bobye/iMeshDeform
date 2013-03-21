@@ -5,7 +5,7 @@
 namespace subspace {
   class LB {
   protected:
-
+    int dimension;
   public:
     LB (int, char**, vMesh*);
     ~LB();

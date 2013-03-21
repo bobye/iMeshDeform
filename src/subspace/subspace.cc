@@ -117,7 +117,8 @@ namespace subspace {
   static Mat  VS;//sparse matrix to LU: dimension 7*vn + 3*ln
   static Mat  RE;//linearization artifacts regulazier
 
-#define COEFF_REG_L2      (0.001) // dumping for nonrigid distortion
+#define COEFF_REG_L2      (0.001) // dumping for nonrigid distortion, 2d
+#define COEFF_REG_L3      (0.1)  // dumping for nonrigid distortion, 3d
 #define COEFF_REG_RADIO   (0.5)   // radio: normal / (overall + normal)
 #define EPSILON           (1E-5)  // N/A
 #define NUM_OF_ITERATION  (8)     // number of iterations of reduced model per frame
@@ -203,12 +204,20 @@ namespace subspace {
 
     need_neighbors();
     need_tetravolumes();
-    need_facetareas();
+    //    need_facetareas();
+    need_adjacentelements();
+    need_pointvolumes();
 
     vn = nodes.size(); vn3 = 3*vn;
     en = nodes.size(); en4 = 4*en;
     rotational_proxies.resize(vn);
     points = _SS_MALLOC_SCALAR(vn3);
+
+    int count=0;
+    for (int i=0; i<vn; ++i) 
+      if (!isinf(pointvolumes[i]))
+	{ totarea += pointvolumes[i]; ++count ;}
+    avgarea = totarea/count;
     
   }
 
@@ -368,7 +377,6 @@ namespace subspace {
     MULTIPLY(qqs, 16, weight)
     ierr = MatSetValues(VS, 4, idq, 4, idq, qqs, ADD_VALUES); CHKERRQ(ierr);
 
-
     for (int i=0; i<3; ++i) {
       PetscScalar vs[2] ={v[i], -v[i]};     
       MULTIPLY(vs, 2, weight)
@@ -448,7 +456,46 @@ namespace subspace {
 
   void TetrahedronMesh::compute_ARAP_approx() {
     for (int i = 0; i<vn; ++i) {
-      //std::vector<int> &nelements = adjacentelements[i];
+      std::vector<int> &nelements = adjacentelements[i];
+      int nele = nelements.size();
+      
+      PetscScalar area = pointvolumes[i];
+      
+      for (int j=0; j<nele; ++j) {
+	int v0 = elements[nelements[j]][0],
+	  v1 = elements[nelements[j]][1],
+	  v2 = elements[nelements[j]][2],
+	  v3 = elements[nelements[j]][3];
+	Vector v01 = nodes[v0] - nodes[v1];
+	Vector v12 = nodes[v1] - nodes[v2];
+	Vector v20 = nodes[v2] - nodes[v0];
+	Vector v03 = nodes[v0] - nodes[v3];
+	Vector v13 = nodes[v1] - nodes[v3];
+	Vector v23 = nodes[v2] - nodes[v3];
+
+	double w01 = std::tan(_SS_PI/2 - dihedral(j, 0, 1)) * len(v23);
+	double w12 = std::tan(_SS_PI/2 - dihedral(j, 1, 2)) * len(v03);
+	double w20 = std::tan(_SS_PI/2 - dihedral(j, 2, 0)) * len(v13);
+	double w03 = std::tan(_SS_PI/2 - dihedral(j, 0, 3)) * len(v12);
+	double w13 = std::tan(_SS_PI/2 - dihedral(j, 1, 3)) * len(v20);
+	double w23 = std::tan(_SS_PI/2 - dihedral(j, 2, 3)) * len(v01);
+
+
+	mat_edge_assembly_VS(v0, v1, i, rotational_proxies[i], std::fabs(w01)/avgarea, v01);
+	mat_edge_assembly_VS(v1, v2, i, rotational_proxies[i], std::fabs(w12)/avgarea, v12);
+	mat_edge_assembly_VS(v2, v0, i, rotational_proxies[i], std::fabs(w20)/avgarea, v20);
+	mat_edge_assembly_VS(v0, v3, i, rotational_proxies[i], std::fabs(w03)/avgarea, v03);
+	mat_edge_assembly_VS(v1, v3, i, rotational_proxies[i], std::fabs(w13)/avgarea, v13);
+	mat_edge_assembly_VS(v2, v3, i, rotational_proxies[i], std::fabs(w23)/avgarea, v23);
+
+      }
+
+      const PetscInt idq[4] = {vn3+ 4*i, vn3 + 4*i+1, vn3 + 4*i+2, vn3 + 4*i+3}; 
+      PetscScalar vqs[16] = {0};
+      vqs[0] = 1;for (int j=1; j<4; ++j) vqs[5*j] = 2/3.;
+      MULTIPLY(vqs, 16, COEFF_REG_L3 * (area/avgarea))
+      MatSetValues(VS, 4, idq, 4, idq, vqs, ADD_VALUES);
+
     }
   }
 
@@ -704,6 +751,8 @@ namespace subspace {
 			 std::vector< Point > & constraint_points) { 
     // precompute LU for dense direct solver, initialize Rot and Lin
     hn = constraints.size(); if (hn<3) {std::cout << "Need more constraints!\n" << std::endl; return;} hn3 =3*hn;
+
+    //    for (int i=0; i<hn; ++i) constraints[i].reserve(vn);
 
     clock_start("Prepare reduced model");
     nsys = ln3 + hn3;

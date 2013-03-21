@@ -66,7 +66,7 @@ namespace subspace {
     */
 
   public:    
-    int vn;
+    int vn, pn;
     HandlerSelect(Object*);
     Object  *object;
     Subspace *ss_solver;
