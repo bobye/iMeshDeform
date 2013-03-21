@@ -86,6 +86,77 @@ const PetscInt J4[9]
     
   }
 
+const PetscInt K1[16]
+= {6, -2, -2, -2,
+   -2, 0,  1,  1,
+   -2, 1,  0,  1,
+   -2, 1,  1,  0};
+const PetscInt K2[16]
+= { 0, -2,  1,  1,
+   -2,  6, -2, -2,
+    1, -2,  0,  1,
+    1, -2,  1,  0};
+const PetscInt K3[16]
+= { 0,  1, -2,  1,
+    1,  0, -2,  1,
+    -2, -2, 6, -2,
+    1,  1,  -2, 0};
+const PetscInt K4[16]
+= { 0,  1,  1, -2,
+    1,  0,  1, -2,
+    1,  1,  0, -2,
+    -2, -2, -2, 6};
+const PetscInt K5[16]
+= { 2, 1, 1, 1,
+    1, 2, 1, 1,
+    1, 1, 2, 1,
+    1, 1, 1, 2};
+
+
+  void TetrahedronMesh::compute_LB_operator(){
+
+    need_neighbors();
+    need_facetareas();
+    need_tetravolumes();
+
+    mat_size = nodes.size();
+
+
+    PetscInt *nnz = new PetscInt[mat_size];
+    for (PetscInt i=0;i<mat_size;++i)
+      nnz[i]=neighbors[i].size() +1;
+    MatCreateSeqAIJ(PETSC_COMM_SELF, mat_size, mat_size, 0, nnz, &mass_mat);
+    MatCreateSeqAIJ(PETSC_COMM_SELF, mat_size, mat_size, 0, nnz, &stiff_mat);
+    delete [] nnz;
+
+    //MatSetOption(mass_mat, MAT_IGNORE_LOWER_TRIANGULAR, PETSC_TRUE);
+    //MatSetOption(stiff_mat, MAT_IGNORE_LOWER_TRIANGULAR, PETSC_TRUE);
+
+    for (PetscInt i=0; i<elements.size(); ++i) {
+      float &l1 = facetareas[i][0],
+	&l2 = facetareas[i][1],
+	&l3 = facetareas[i][2],
+	&l4 = facetareas[i][3];
+      
+      int *idx = elements[i];
+      PetscScalar mass[16], stiff[16];
+
+      for (PetscInt j = 0; j < 16; ++j) {
+	mass[j]= tetravolumes[i]*K5[j]/20.;
+	stiff[j]= (l1*l1*K1[j]+l2*l2*K2[j]+l3*l3*K3[j]+l4*l4*K4[j])/(54.* tetravolumes[i]);
+      }
+      MatSetValues(stiff_mat, 4, idx, 4, idx, stiff, ADD_VALUES);
+      MatSetValues(mass_mat, 4, idx, 4, idx, mass, ADD_VALUES);	       
+
+    }
+
+    MatAssemblyBegin(stiff_mat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(stiff_mat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyBegin(mass_mat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(mass_mat, MAT_FINAL_ASSEMBLY);
+    
+  }
+
   void LB::solve_eigen(){
     /* 
        Create eigensolver context

@@ -3,7 +3,8 @@
 
 using namespace subspace;
 
-typedef TriangleMesh Mesh;
+//typedef TriangleMesh Mesh;
+typedef TetrahedronMesh Mesh;
     
 
 int main(int argc, char* argv[]) {

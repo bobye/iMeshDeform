@@ -98,7 +98,7 @@ namespace subspace {
     void recompute_normals() { surface.recompute_normals_tightpacked();}
     void write(const char* filename) {};
 
-    void compute_LB_operator() {};
+    void compute_LB_operator();
 
     void initialize_subspace_solver() {};
     void compute_subspace_assembly() {};
