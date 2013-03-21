@@ -29,7 +29,17 @@ namespace subspace {
     // geometry of elements (optional)
     float *vertices_ele;
 
+
+    std::vector<double> linear_proxies;
+    // load linear_proxies via vertices group
+    void load_linear_proxies_vg(std::vector<int> &);
+
+    //rotational proxies, clusters of vertices
+    std::vector<int> rotational_proxies;
+    void load_rotational_proxies(std::vector<int> &);
     // virtual functions:
+
+    virtual void load_controls(std::vector<int> &);
 
     // draw mesh visiable
     virtual void draw() = 0;
@@ -43,8 +53,17 @@ namespace subspace {
 
     virtual void initialize_subspace_solver() = 0;
     // assembly large sparse matrix for solving subspaces
-    virtual void compute_subspace_assembly() = 0;
-    virtual void extract_display_layer() = 0;
+  protected:
+    virtual int get_numneighbors(int ) = 0;
+    virtual void compute_ARAP_approx() = 0;
+  public:
+    void compute_subspace_assembly();
+
+
+    ~vMesh() {
+      free(vertices_tpd);
+      free(normals_tpd);
+    }
   };
   
   class TriangleMesh : public vMesh, public Mesh2d {
@@ -73,9 +92,11 @@ namespace subspace {
 
     void compute_LB_operator();
 
+    //    void load_controls(std::vector<int> &);
     void initialize_subspace_solver();
-    void compute_subspace_assembly();
-    void extract_display_layer();
+  protected:
+    int get_numneighbors(int i) {return neighbors[i].size();}
+    void compute_ARAP_approx();
   };
 
 
@@ -100,9 +121,12 @@ namespace subspace {
 
     void compute_LB_operator();
 
-    void initialize_subspace_solver() {};
-    void compute_subspace_assembly() {};
-    void extract_display_layer() {};
+    //    void load_controls(std::vector<int> &){};
+    void initialize_subspace_solver();
+  protected:
+    int get_numneighbors(int i) {return neighbors[i].size();}
+    void compute_ARAP_approx();
+
   };
 
 }

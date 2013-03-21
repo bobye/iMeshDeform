@@ -96,16 +96,17 @@ namespace subspace {
   // Physical layer
   
   static int vn, vn3; // vertices number, and geometric dimension
+  static int en, en4; // element number
   static _SS_SCALAR totarea, avgarea; // total area and average vertex supporting area
 
   // number and dimension of linear proxies, rotational proxies 
   static int ln, rn, ln3, rn9; 
 
   //linear proxies
-  static PetscScalar*  linear_proxies; // column major vn3 x ln3
+  // static PetscScalar*  linear_proxies; // column major vn3 x ln3
 
   //rotational proxies, clusters of vertices
-  static std::vector<int> rotational_proxies;
+  // static std::vector<int> rotational_proxies;
 
   /* variational subspace solver
    * assembly: VS, VS_L, VS_R
@@ -181,6 +182,8 @@ namespace subspace {
     //    std::cout << mesh->normals[10] << mesh->pdir1[10] << mesh->pdir2[10] << std::endl; exit(0);
 
     vn = vertices.size(); vn3 = 3*vn;
+    en = vertices.size(); en4 = 4*en;
+
     rotational_proxies.resize(vn);
     points = _SS_MALLOC_SCALAR(vn3);
     //    vertices_f = new float[vn3];
@@ -195,28 +198,42 @@ namespace subspace {
 #endif
   }
 
+  
+  void TetrahedronMesh::initialize_subspace_solver() {
 
-  void Subspace::load_linear_proxies_vg(std::vector<int> &group_ids) {
+    need_neighbors();
+    need_tetravolumes();
+    need_facetareas();
+
+    vn = nodes.size(); vn3 = 3*vn;
+    en = nodes.size(); en4 = 4*en;
+    rotational_proxies.resize(vn);
+    points = _SS_MALLOC_SCALAR(vn3);
+    
+  }
+
+  void vMesh::load_linear_proxies_vg(std::vector<int> &group_ids) {
     assert(vn == group_ids.size());
     ln = *std::max_element(group_ids.begin(), group_ids.end()) + 1; ln3 = 3*ln;
     std::vector<double> count_vertices; count_vertices.resize(ln);
-    linear_proxies = new PetscScalar[vn3*ln3]; 
-    std::fill(linear_proxies, linear_proxies+vn3*ln3, 0);
+    PetscScalar *linear = new PetscScalar[vn3*ln3]; 
+    std::fill(linear, linear+vn3*ln3, 0);
 
     for (int i=0, j=0; i<vn; ++i, j+=3) {
-      linear_proxies[3*group_ids[i] + j*ln3] = 1.; // row major
-      linear_proxies[3*group_ids[i] +1 + (j+1)*ln3] = 1.; 
-      linear_proxies[3*group_ids[i] +2 + (j+2)*ln3] = 1.; 
+      linear[3*group_ids[i] + j*ln3] = 1.; // row major
+      linear[3*group_ids[i] +1 + (j+1)*ln3] = 1.; 
+      linear[3*group_ids[i] +2 + (j+2)*ln3] = 1.; 
       ++count_vertices[group_ids[i]];
     }
     for (int i=0, j=0; i<vn; ++i, j+=3) {
-      linear_proxies[3*group_ids[i] + j*ln3] /= count_vertices[group_ids[i]]; // normalize
-      linear_proxies[3*group_ids[i] +1 + (j+1)*ln3] /= count_vertices[group_ids[i]]; 
-      linear_proxies[3*group_ids[i] +2 + (j+2)*ln3] /= count_vertices[group_ids[i]]; 
+      linear[3*group_ids[i] + j*ln3] /count_vertices[group_ids[i]]; // normalize
+      linear[3*group_ids[i] +1 + (j+1)*ln3] /= count_vertices[group_ids[i]]; 
+      linear[3*group_ids[i] +2 + (j+2)*ln3] /= count_vertices[group_ids[i]]; 
     }
+    for (int i=0; i<vn3*ln3; ++i) linear_proxies.push_back(linear[i]);
   }
 
-  void Subspace::load_rotational_proxies(std::vector<int> &group_ids) {
+  void vMesh::load_rotational_proxies(std::vector<int> &group_ids) {
     assert(vn == group_ids.size());
 
     int rn_hard =0, rn_soft =0;
@@ -235,7 +252,7 @@ namespace subspace {
     
   }
 
-  void Subspace::load_controls(std::vector<int> &group_ids) {
+  void vMesh::load_controls(std::vector<int> &group_ids) {
     assert(vn == group_ids.size());
     clock_start("Preparing control layer");
 
@@ -246,17 +263,17 @@ namespace subspace {
       else if(group_ids[i] == 0) ++M;
     M = 3*M; cn = M + 12*cn;
 
-    int N = 7*vn + 3*ln;
+    int N = vn3 + en4 + ln3;
     int *nnz = new int [N];
     for (int i=0; i<vn; ++i) {
       if (group_ids[i] == 0) nnz[3*i] = nnz[3*i+1] = nnz[3*i+2] = 1;
       else nnz[3*i] = nnz[3*i+1] = nnz[3*i+2] = 4;
     }
-    for (int i=0; i<4*vn; ++i) nnz[vn3 + i] = 1;    
-    for (int i=0; i<ln3; ++i)  nnz[7*vn + i] = 1;
+    for (int i=0; i<en4; ++i) nnz[vn3 + i] = 1;    
+    for (int i=0; i<ln3; ++i)  nnz[vn3 + en4 + i] = 1;
 
 
-    MatCreateSeqAIJ(PETSC_COMM_SELF, N, cn + 4*vn + 3*ln, 0, nnz, &Ctrl2Geom); //delete [] nnz;
+    MatCreateSeqAIJ(PETSC_COMM_SELF, N, cn + en4 + ln3, 0, nnz, &Ctrl2Geom); //delete [] nnz;
 
     const PetscScalar one = 1;
     for (int i=0, j=0; i<vn; ++i) 
@@ -274,7 +291,7 @@ namespace subspace {
 	int mx[4] = {m, m+3, m+4, m+5};
 	int my[4] = {m+1, m+6, m+7, m+8};
 	int mz[4] = {m+2, m+9, m+10, m+11};	
-	PetscScalar mv[4] = {1, mesh->vertices_tpd[3*i], mesh->vertices_tpd[3*i+1], mesh->vertices_tpd[3*i+2]};
+	PetscScalar mv[4] = {1, vertices_tpd[3*i], vertices_tpd[3*i+1], vertices_tpd[3*i+2]};
 
 	MatSetValues(Ctrl2Geom, 1, &ix, 4, mx, mv, INSERT_VALUES);
 	MatSetValues(Ctrl2Geom, 1, &iy, 4, my, mv, INSERT_VALUES);
@@ -321,7 +338,7 @@ namespace subspace {
 
 #define MULTIPLY(v,n,w) cblas_dscal(n, w, v, 1);
 
-  inline PetscErrorCode mat_edge_assembly_VS(const PetscInt &v0, const PetscInt &v1, const PetscInt &k, const PetscScalar &weight, const Vector &v) {
+  inline PetscErrorCode mat_edge_assembly_VS(const PetscInt &v0, const PetscInt &v1, const PetscInt &k, const PetscInt &rk, const PetscScalar &weight, const Vector &v) {
     PetscErrorCode ierr;
     const PetscInt idv[3][2] = {{3*v0, 3*v1}, {3*v0+1, 3*v1+1}, {3*v0+2, 3*v1+2}};    
     const PetscInt idq[4] = {vn3+ 4*k, vn3 + 4*k+1, vn3 + 4*k+2, vn3 + 4*k+3}; 
@@ -356,61 +373,32 @@ namespace subspace {
       PetscScalar vs[2] ={v[i], -v[i]};     
       MULTIPLY(vs, 2, weight)
       for (int j=0; j<3; ++j)
-	VecSetValues(VS_R[rotational_proxies[k]+rn*(i+3*j)], 2, idv[j], vs, ADD_VALUES);
+	VecSetValues(VS_R[rk+rn*(i+3*j)], 2, idv[j], vs, ADD_VALUES);
       }
 
     PetscScalar vs[4];
     for (int i=0; i<3; ++i) {
       vs[0] = -v[i]*v[0]; vs[1] = 0; vs[2] = -v[i]*v[2]; vs[3]=v[i]*v[1];
       MULTIPLY(vs, 4, weight)
-      VecSetValues(VS_R[rotational_proxies[k]+rn*i], 4, idq, vs, ADD_VALUES);
+      VecSetValues(VS_R[rk+rn*i], 4, idq, vs, ADD_VALUES);
     }
     for (int i=0; i<3; ++i) {
       vs[0] = -v[i]*v[1]; vs[1] = v[i]*v[2]; vs[2] = 0; vs[3]=-v[i]*v[0];
       MULTIPLY(vs, 4, weight)
-      VecSetValues(VS_R[rotational_proxies[k]+rn*(i+3)], 4, idq, vs, ADD_VALUES);
+      VecSetValues(VS_R[rk+rn*(i+3)], 4, idq, vs, ADD_VALUES);
     }
     for (int i=0; i<3; ++i) {
       vs[0] = -v[i]*v[2]; vs[1] = -v[i]*v[1]; vs[2] = v[i]*v[0]; vs[3]=0;
       MULTIPLY(vs, 4, weight)
-      VecSetValues(VS_R[rotational_proxies[k]+rn*(i+6)], 4, idq, vs, ADD_VALUES);
+      VecSetValues(VS_R[rk+rn*(i+6)], 4, idq, vs, ADD_VALUES);
     }
 #ifdef _SS_USE_CONFORMAL
-    NR[rotational_proxies[k]] += weight *(v DOT v);
+    NR[rk] += weight *(v DOT v);
 #endif
     return ierr;   
   }
 
-  void TriangleMesh::compute_subspace_assembly() {
-    int N = 7*vn + 3*ln; 
-    int *nnz = new int[N];
-    for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (neighbors[i/3].size()+1) + 3*ln;
-    for (int i=0; i<4*vn; ++i) nnz[vn3 + i] = 4;// + mesh->neighbors[i/4].size();
-    for (int i=0; i<ln3; ++i)  nnz[7*vn + i] = 1;
-
-    MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 0, nnz, &VS); delete [] nnz;
-    MatSetOption(VS, MAT_IGNORE_LOWER_TRIANGULAR, PETSC_TRUE);
-
-    MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 1, PETSC_NULL, &RE);
-
-    // create LHS of subspace problem
-    VS_L = new Vec[ln3];
-    VS_R = new Vec[rn9];
-    for (int i=0; i<ln3; ++i) MatGetVecs(VS, &VS_L[i], PETSC_NULL);
-    for (int i=0; i<rn9; ++i) MatGetVecs(VS, &VS_R[i], PETSC_NULL);
-
-    for (int i=0; i< ln3; ++i) { 
-      PetscInt index = i+7*vn; PetscScalar one = 1.; 
-      VecSet(VS_L[i], 0.);
-      VecSetValues(VS_L[i], 1, &index, &one, INSERT_VALUES);
-      VecAssemblyBegin(VS_L[i]);
-      VecAssemblyEnd(VS_L[i]);
-    }
-    for (int i=0; i< rn9; ++i) {
-      VecSet(VS_R[i], 0.);
-    }
-    // assembly VS
-
+  void TriangleMesh::compute_ARAP_approx() {
     for (int i = 0; i<vn; ++i) {
       //trimesh::vec &normal = mesh->normals[i], &pdir1 = mesh->pdir1[i], &pdir2 = mesh->pdir2[2];
 
@@ -431,9 +419,9 @@ namespace subspace {
 	double tan0 = std::tan(_SS_PI/2 - cornerangle(nfaces[j], 0));	
 	double tan1 = std::tan(_SS_PI/2 - cornerangle(nfaces[j], 1));
 
-	mat_edge_assembly_VS(v0, v1, i, std::fabs(tan2)/avgarea, v01);
-	mat_edge_assembly_VS(v1, v2, i, std::fabs(tan0)/avgarea, v12);
-	mat_edge_assembly_VS(v2, v0, i, std::fabs(tan1)/avgarea, v20);
+	mat_edge_assembly_VS(v0, v1, i, rotational_proxies[i], std::fabs(tan2)/avgarea, v01);
+	mat_edge_assembly_VS(v1, v2, i, rotational_proxies[i], std::fabs(tan0)/avgarea, v12);
+	mat_edge_assembly_VS(v2, v0, i, rotational_proxies[i], std::fabs(tan1)/avgarea, v20);
 
       }
 
@@ -456,16 +444,56 @@ namespace subspace {
 
     }
 
+  }
+
+  void TetrahedronMesh::compute_ARAP_approx() {
+    for (int i = 0; i<vn; ++i) {
+      //std::vector<int> &nelements = adjacentelements[i];
+    }
+  }
+
+  void vMesh::compute_subspace_assembly() {
+    int N = vn3 + en4 + ln3; 
+    int *nnz = new int[N];
+
+    for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (get_numneighbors(i/3)+1) + 3*ln;
+    for (int i=0; i<en4; ++i)  nnz[vn3 + i] = 4;// + mesh->neighbors[i/4].size();
+    for (int i=0; i<ln3; ++i)  nnz[vn3+en4 + i] = 1;
+
+    MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 0, nnz, &VS); delete [] nnz;
+    MatSetOption(VS, MAT_IGNORE_LOWER_TRIANGULAR, PETSC_TRUE);
+
+    MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 1, PETSC_NULL, &RE);
+
+    // create LHS of subspace problem
+    VS_L = new Vec[ln3];
+    VS_R = new Vec[rn9];
+    for (int i=0; i<ln3; ++i) MatGetVecs(VS, &VS_L[i], PETSC_NULL);
+    for (int i=0; i<rn9; ++i) MatGetVecs(VS, &VS_R[i], PETSC_NULL);
+
+    for (int i=0; i< ln3; ++i) { 
+      PetscInt index = i+vn3+en4; PetscScalar one = 1.; 
+      VecSet(VS_L[i], 0.);
+      VecSetValues(VS_L[i], 1, &index, &one, INSERT_VALUES);
+      VecAssemblyBegin(VS_L[i]);
+      VecAssemblyEnd(VS_L[i]);
+    }
+    for (int i=0; i< rn9; ++i) {
+      VecSet(VS_R[i], 0.);
+    }
+    // assembly VS
+    compute_ARAP_approx();
+
     // assembly VH
     int *irow = new int[vn3], *icol = new int[ln3];
     for (int i=0; i<vn3; ++i) irow[i] = i;
-    for (int i=0; i<ln3; ++i) icol[i] = 7*vn + i;
+    for (int i=0; i<ln3; ++i) icol[i] = vn3 + en4 + i;
 
-    MatSetValues(VS, vn3, irow, ln3, icol, linear_proxies, ADD_VALUES);
+    MatSetValues(VS, vn3, irow, ln3, icol, &linear_proxies[0], ADD_VALUES);
     delete [] irow; delete [] icol;
 
     PetscScalar zero = 0;
-    for (int i=7*vn; i<N; ++i) MatSetValues(VS, 1, &i, 1, &i, &zero, ADD_VALUES);
+    for (int i=vn3 + en4; i<N; ++i) MatSetValues(VS, 1, &i, 1, &i, &zero, ADD_VALUES);
 
 
 
@@ -481,24 +509,6 @@ namespace subspace {
     }
   }
 
-
-  void TriangleMesh::extract_display_layer() {
-    Vec tmp; MatGetVecs(VS, &tmp, PETSC_NULL);
-
-     for (int i=0; i<ln3; ++i) {
-      PetscScalar *buffer;
-      MatMult(Ctrl2Geom, SL[i], tmp);
-      VecGetArray(tmp, &buffer);
-      for (int j=0; j<vn3; ++j) SL_V[vn3*i+j] = buffer[j];
-    }
-    for (int i=0; i<rn9; ++i) {
-      PetscScalar *buffer;
-      MatMult(Ctrl2Geom, SR[i], tmp);
-      VecGetArray(tmp, &buffer);
-      for (int j=0; j<vn3; ++j) SR_V[vn3*i+j] = buffer[j];
-    }
-    VecDestroy(&tmp);
-  }
 
 
   void Subspace::solve() {
@@ -567,14 +577,30 @@ namespace subspace {
     /**************************************************/
     // copy subspace solution data to global array
     clock_start("Preparing display layer");
-    mesh->extract_display_layer();
+
+    Vec tmp; MatGetVecs(VS, &tmp, PETSC_NULL);
+
+     for (int i=0; i<ln3; ++i) {
+      PetscScalar *buffer;
+      MatMult(Ctrl2Geom, SL[i], tmp);
+      VecGetArray(tmp, &buffer);
+      for (int j=0; j<vn3; ++j) SL_V[vn3*i+j] = buffer[j];
+    }
+    for (int i=0; i<rn9; ++i) {
+      PetscScalar *buffer;
+      MatMult(Ctrl2Geom, SR[i], tmp);
+      VecGetArray(tmp, &buffer);
+      for (int j=0; j<vn3; ++j) SR_V[vn3*i+j] = buffer[j];
+    }
+    VecDestroy(&tmp);
+
     clock_end();
     /**************************************************/
     clock_start("Precomputing online dense system");
     // precompute online dense linear system (with/without dump)
     PetscInt *indices = new PetscInt[ln3];
     PetscScalar *zeros = new PetscScalar[ln3]; std::fill(zeros, zeros + ln3, 0.);
-    for (int i=0; i<ln3; ++i) indices[i] = cn + 4*vn + i;
+    for (int i=0; i<ln3; ++i) indices[i] = cn + en4 + i;
     for (int i=0; i<ln3; ++i) {
       VecSetValues(SL[i], ln3, indices, zeros, INSERT_VALUES);
       VecAssemblyBegin(SL[i]);
@@ -611,16 +637,16 @@ namespace subspace {
     /**************************************************/
     // precompute rotational fitting system
 
-    indices = new PetscInt[4*vn];
-    zeros = new PetscScalar[4*vn]; std::fill(zeros, zeros + 4*vn, 0.);
-    for (int i=0; i<4*vn; ++i) indices[i] = cn + i;
+    indices = new PetscInt[en4];
+    zeros = new PetscScalar[en4]; std::fill(zeros, zeros + en4, 0.);
+    for (int i=0; i<en4; ++i) indices[i] = cn + i;
     for (int i=0; i<ln3; ++i) {
-      VecSetValues(SL[i], 4*vn, indices, zeros, INSERT_VALUES);
+      VecSetValues(SL[i], en4, indices, zeros, INSERT_VALUES);
       VecAssemblyBegin(SL[i]);
       VecAssemblyEnd(SL[i]);
     }
     for (int i=0; i<rn9; ++i) {
-      VecSetValues(SR[i], 4*vn, indices, zeros, INSERT_VALUES);
+      VecSetValues(SR[i], en4, indices, zeros, INSERT_VALUES);
       VecAssemblyBegin(SR[i]);
       VecAssemblyEnd(SR[i]);
     }
@@ -657,7 +683,7 @@ namespace subspace {
   }
 
   Subspace::~Subspace() {        
-    _SS_FREE(linear_proxies);
+    //_SS_FREE(linear_proxies);
     
     _SS_FREE(SL_V); 
     _SS_FREE(SR_V);
@@ -774,15 +800,27 @@ namespace subspace {
     //update mesh vertices
     // reduced variable to mesh vertices, often computational expensive
     //    _SS_PROFILE(
-    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, ln3, 1, SL_V, vn3, Lin, 1, 0, points, 1);
-    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, vn3, rn9, 1, SR_V, vn3, Rot, 1, 1, points, 1);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, 
+			 3*mesh->numberofvertices, ln3, 
+			 1, 
+			 SL_V, vn3, 
+			 Lin, 1, 
+			 0, 
+			 points, 1);
+    _SS_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, 
+			 3*mesh->numberofvertices, rn9, 
+			 1, 
+			 SR_V, vn3, 
+			 Rot, 1, 
+			 1, 
+			 points, 1);
     //		)
     /*
     for (int i=0, j=0; i<vn; ++i, j+=3)
       apply_rot(mesh->vertices[i], &vertices[j], GRot, 'C');
     */
     _SS_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans, 
-			 3, vn, 3,
+			 3, mesh->numberofvertices, 3,
 			 1, 
 			 GRot, 3, 
 			 points, 3, 
