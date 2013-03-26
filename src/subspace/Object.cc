@@ -14,7 +14,17 @@ namespace subspace {
 
     glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
     glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
-
+    int vn = pmesh->numberofvertices;
+    color_base = new GLubyte[4*vn];
+    
+    for( int i=0 ; i<vn ; ++i ) {
+      if(pmesh->is_rigid[i]!=0) {
+      color_base[4*i] = 128; color_base[4*i+1] = 128; color_base[4*i+2] = 128; color_base[4*i+3] = 192;
+      }
+      else {
+      color_base[4*i] = 77; color_base[4*i+1] = 128; color_base[4*i+2] = 154; color_base[4*i+3] = 192;
+      }
+    }
   }
 
   Object::Object(TetrahedronMesh *pmesh) : mesh(pmesh) {
@@ -28,15 +38,24 @@ namespace subspace {
     
     glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
     glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
+    int vn = pmesh->numberofvertices;
+    color_base = new GLubyte[4*vn];
     
+    for( int i=0 ; i<vn ; ++i ) {
+      if(pmesh->is_rigid[i]!=0) {
+      color_base[4*i] = 128; color_base[4*i+1] = 128; color_base[4*i+2] = 128; color_base[4*i+3] = 192;
+      }
+      else {
+      color_base[4*i] = 77; color_base[4*i+1] = 128; color_base[4*i+2] = 154; color_base[4*i+3] = 192;
+      }
+    }
   }
 
   void draw_tstrips(Mesh2d *mesh) {
     static bool use_glArrayElement = false;
     static bool tested_renderer = false;
     if (!tested_renderer) {
-      use_glArrayElement = !!strstr(
-				    (const char *) glGetString(GL_RENDERER), "Intel");
+      use_glArrayElement = !!strstr((const char *) glGetString(GL_RENDERER), "Intel");
       tested_renderer = true;
     }
 

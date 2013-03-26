@@ -39,7 +39,7 @@ namespace subspace {
     std::vector<int> rotational_proxies;
     void load_rotational_proxies(std::vector<int> &);
     // virtual functions:
-
+    std::vector<int> is_rigid;
     virtual void load_controls(std::vector<int> &);
 
     // draw mesh visiable

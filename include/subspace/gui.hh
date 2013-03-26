@@ -23,7 +23,7 @@ namespace subspace {
     vMesh *mesh;    
     // bounding box
     GLfloat bbox[6], size;
-    
+    GLubyte *color_base;
     Object(TriangleMesh*);
     Object(TetrahedronMesh*);
 

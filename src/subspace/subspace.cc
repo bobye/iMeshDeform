@@ -275,6 +275,7 @@ namespace subspace {
     int N = vn3 + en4 + ln3;
     int *nnz = new int [N];
     for (int i=0; i<vn; ++i) {
+      is_rigid.push_back(group_ids[i]);
       if (group_ids[i] == 0) nnz[3*i] = nnz[3*i+1] = nnz[3*i+2] = 1;
       else nnz[3*i] = nnz[3*i+1] = nnz[3*i+2] = 4;
     }

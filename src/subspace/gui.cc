@@ -249,10 +249,11 @@ namespace subspace {
     if (wireOrNot) 
       glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     else
+    {
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
+      glColorPointer(3, GL_UNSIGNED_BYTE, 4, currentScene->object->color_base);
+    }
     currentScene->object->draw();		    
-
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_COLOR_MATERIAL);
 
@@ -488,13 +489,11 @@ namespace subspace {
 	wireOrNot = false;
 	//currentScene->context = currentScene->object;
 	currentScene->context = context_buffer;
-	glDisableClientState(GL_COLOR_ARRAY);
       } else { // set select mode
 	current_state = LOCK_MODE_SELECT;
 	wireOrNot = true;
 	context_buffer = currentScene->context;
 	currentScene->context = currentScene->vertsel;
-	glEnableClientState(GL_COLOR_ARRAY);
       }
       glutPostRedisplay();
     }
@@ -955,6 +954,7 @@ namespace subspace {
 
     add_lights();
     camera_displace = 3 * object->size;
+    glEnableClientState(GL_COLOR_ARRAY);
     /*
     glNewList(object->LIST_NAME, GL_COMPILE_AND_EXECUTE);
     object->register_mesh();
