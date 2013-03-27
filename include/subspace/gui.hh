@@ -101,6 +101,7 @@ namespace subspace {
     Geometry *context;//default set to object
 
     Subspace *ss_solver;//subspace solver
+    int render_mode; //0: default black scene; 1: white scene without grid, text and constraint point
 
     void set_buffer();
     void restore_buffer();

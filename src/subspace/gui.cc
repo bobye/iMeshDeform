@@ -124,7 +124,7 @@ namespace subspace {
   {
     width = height = 800;
     currentScene = this; //static member need definition
-
+    render_mode = 0;
     glutInit(&argc, argv);
 
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
@@ -215,84 +215,106 @@ namespace subspace {
 
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);//(NEW) setup our buffers
 
+    if(currentScene->render_mode==0) {
+      // draw ground
+      glClearColor(0.0,0.0,0.0,0.0);
+      glEnable(GL_COLOR_MATERIAL);
+      glColor3f(0.3, 0.3, 0.3);
 
-
-
-    // draw ground
-    glEnable(GL_COLOR_MATERIAL);
-    glColor3f(0.3, 0.3, 0.3);
-
-
-    glBegin(GL_LINES);    
-    for (int i = -20; i<=20; ++i) {
-      glVertex3f( i * ground_wire, 0,  (-20) * ground_wire);
-      glVertex3f( i * ground_wire, 0,  (+20) * ground_wire);
-      glVertex3f( (-20) * ground_wire, 0,  i * ground_wire);
-      glVertex3f( (+20) * ground_wire, 0,  i * ground_wire);
-    }
-    glEnd();
+      glBegin(GL_LINES);    
+      for (int i = -20; i<=20; ++i) {
+	glVertex3f( i * ground_wire, 0,  (-20) * ground_wire);
+	glVertex3f( i * ground_wire, 0,  (+20) * ground_wire);
+	glVertex3f( (-20) * ground_wire, 0,  i * ground_wire);
+	glVertex3f( (+20) * ground_wire, 0,  i * ground_wire);
+      }
+      glEnd();
     
 
 
-    if (current_state & LOCK_MODE_SELECT) {
+      if (current_state & LOCK_MODE_SELECT) {
+	glPushMatrix();//push i-th matrix
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	glColorPointer(3, GL_UNSIGNED_BYTE, 4, ((VertSelect*) currentScene->context)->color_solid);
+	currentScene->object->draw();
+	glPopMatrix();//pop i-th matrix
+	glColorPointer(3, GL_UNSIGNED_BYTE, 4, ((VertSelect*) currentScene->context)->color_wire);
+      }  
+
+
+      // draw object
       glPushMatrix();//push i-th matrix
-      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-      glColorPointer(3, GL_UNSIGNED_BYTE, 4, ((VertSelect*) currentScene->context)->color_solid);
-      currentScene->object->draw();
+      if (wireOrNot) 
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+      else
+	{
+	  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	  glColorPointer(3, GL_UNSIGNED_BYTE, 4, currentScene->object->color_base);
+	}
+      currentScene->object->draw();		    
+      glDisable(GL_DEPTH_TEST);
+      glEnable(GL_COLOR_MATERIAL);
+
+
+      currentScene->handsel->draw(win_world_radio);
+
+
+      glPushMatrix();
+      glColor3f(.5, .5, 0.);
+      glTranslatef(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
+      glutSolidSphere(5*win_world_radio , 20, 20);
+      glPopMatrix();    
+      glEnable(GL_DEPTH_TEST);
+
       glPopMatrix();//pop i-th matrix
-      glColorPointer(3, GL_UNSIGNED_BYTE, 4, ((VertSelect*) currentScene->context)->color_wire);
-    }  
 
 
-    // draw object
-    glPushMatrix();//push i-th matrix
-    if (wireOrNot) 
-      glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+      glDisable(GL_DEPTH_TEST);
+      glDisable(GL_LIGHTING);
+      glPushMatrix();
+      glLoadIdentity();
+      glMatrixMode(GL_PROJECTION);
+      glPushMatrix();
+      glLoadIdentity();
+
+      gluOrtho2D(0.0, viewport[2], 0.0, viewport[3]);
+      display_action();
+      display_text();
+
+      glEnable(GL_LIGHTING);
+      glEnable(GL_DEPTH_TEST);    
+
+      glPopMatrix();
+      glMatrixMode(GL_MODELVIEW);
+      glPopMatrix();
+   }
     else
     {
+      glClearColor(1.0,1.0,1.0,0.0);
+      glColor3f(0.3, 0.3, 0.3);
+      glEnable(GL_COLOR_MATERIAL);
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glColorPointer(3, GL_UNSIGNED_BYTE, 4, currentScene->object->color_base);
-    }
-    currentScene->object->draw();		    
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_COLOR_MATERIAL);
+      currentScene->object->draw();		    
+      glDisable(GL_DEPTH_TEST);
+      glEnable(GL_COLOR_MATERIAL);
 
 
-    currentScene->handsel->draw(win_world_radio);
+      currentScene->handsel->draw(win_world_radio);
 
 
-    glPushMatrix();
-    glColor3f(.5, .5, 0.);
-    glTranslatef(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
-    glutSolidSphere(5*win_world_radio , 20, 20);
-    glPopMatrix();    
-    glEnable(GL_DEPTH_TEST);
+      glPushMatrix();
+      glColor3f(.5, .5, 0.);
+      glTranslatef(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
+      glutSolidSphere(5*win_world_radio , 20, 20);
+      glPopMatrix();    
+      glEnable(GL_DEPTH_TEST);
 
-    glPopMatrix();//pop i-th matrix
+      glPopMatrix();//pop i-th matrix
+      
 
-
-
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_LIGHTING);
-    glPushMatrix();
-    glLoadIdentity();
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-
-    gluOrtho2D(0.0, viewport[2], 0.0, viewport[3]);
-    display_action();
-    display_text();
-
-    glEnable(GL_LIGHTING);
-    glEnable(GL_DEPTH_TEST);    
-
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
-
-
-
+    }    
     ++frame;
     GetTime(time)
     double accum = DiffTime(time,timebase);
@@ -301,7 +323,6 @@ namespace subspace {
       timebase = time;
       frame = 0;
     }
-
     glutSwapBuffers();
 
     
@@ -481,7 +502,11 @@ namespace subspace {
       
       glutPostRedisplay();
     }
-
+    else if(key == 'e') {
+      currentScene->render_mode = 1;
+      glutPostRedisplay();
+      glClearColor(1.0,1.0,1.0,0.0);
+    }
 
     if (key == 9) {// TAB key, switch between selection mode and normal mode
       if (current_state & LOCK_MODE_SELECT ) { // return to normal mode
@@ -663,37 +688,48 @@ namespace subspace {
       else currentScene->write("scene.1");
     }
     else if (key == GLUT_KEY_F2) {
-      currentScene->write("scene.2");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.2");
+      else currentScene->write("scene.2");
     }
     else if (key == GLUT_KEY_F3) {
-      currentScene->write("scene.3");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.3");
+      else currentScene->write("scene.3");
     }
     else if (key == GLUT_KEY_F4) {
-      currentScene->write("scene.4");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.4");
+      else currentScene->write("scene.4");
     }
     else if (key == GLUT_KEY_F5) {
-      currentScene->write("scene.5");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.5");
+      else currentScene->write("scene.5");
     }
     else if (key == GLUT_KEY_F6) {
-      currentScene->write("scene.6");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.6");
+      else currentScene->write("scene.6");
     }
     else if (key == GLUT_KEY_F7) {
-      currentScene->write("scene.7");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.7");
+      else currentScene->write("scene.7");
     }
     else if (key == GLUT_KEY_F8) {
-      currentScene->write("scene.8");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.8");
+      else currentScene->write("scene.8");
     }
     else if (key == GLUT_KEY_F9) {
-      currentScene->write("scene.9");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.9");
+      else currentScene->write("scene.9");
     }
     else if (key == GLUT_KEY_F10) {
-      currentScene->write("scene.10");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.10");
+      else currentScene->write("scene.10");
     }
     else if (key == GLUT_KEY_F11) {
-      currentScene->write("scene.11");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.11");
+      else currentScene->write("scene.11");
     }
     else if (key == GLUT_KEY_F12) {
-      currentScene->write("scene.12");
+      if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) currentScene->read("scene.12");
+      else currentScene->write("scene.12");
     }
   }
 
@@ -1012,8 +1048,9 @@ namespace subspace {
 
 
   void Scene::read(std::string filename) {
+    
     object->xf.read(filename + ".obj.xf");
-
+    //object->mesh = TriangleMesh::read(std::string(filename + ".obj.off").c_str());
     glMatrixMode(GL_PROJECTION);
     CTM.read(filename + ".prj.xf");
     glLoadIdentity();
@@ -1023,7 +1060,7 @@ namespace subspace {
     CTM.read(filename + ".mod.xf");
     glLoadIdentity();
     glMultMatrixf(CTM);
-
+    get_window_world_radio();
     std::cout << "Import from " << filename << std::endl;
     glutPostRedisplay();
 
@@ -1034,6 +1071,9 @@ namespace subspace {
     if (check != '\n') {
       std::cout << "canceled" << std::endl; 
       while (getchar()!='\n');
+      currentScene->render_mode = 0;
+      glutPostRedisplay();
+      glClearColor(0.0,0.0,0.0,0.0);
       return;}
 
     glGetFloatv( GL_PROJECTION_MATRIX, CTM); 
@@ -1054,7 +1094,9 @@ namespace subspace {
 
     dump_image(filename + ".cap.ppm");
     std::cout << "Export to " << filename << std::endl;
-    
+    currentScene->render_mode = 0;
+    glutPostRedisplay();
+    glClearColor(0.0,0.0,0.0,0.0);
   }
 }
 
