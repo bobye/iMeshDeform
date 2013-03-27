@@ -295,16 +295,18 @@ namespace subspace {
       glColor3f(0.3, 0.3, 0.3);
       glEnable(GL_COLOR_MATERIAL);
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+      glPushMatrix();
       glColorPointer(3, GL_UNSIGNED_BYTE, 4, currentScene->object->color_base);
       currentScene->object->draw();		    
+      
       glDisable(GL_DEPTH_TEST);
       glEnable(GL_COLOR_MATERIAL);
 
 
       currentScene->handsel->draw(win_world_radio);
 
-
       glPushMatrix();
+      
       glColor3f(.5, .5, 0.);
       glTranslatef(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
       glutSolidSphere(5*win_world_radio , 20, 20);
