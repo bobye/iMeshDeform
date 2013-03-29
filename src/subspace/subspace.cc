@@ -90,17 +90,19 @@ namespace subspace {
   /*****************************************************************************/
   // Control layer
   static Mat Ctrl2Geom, Ctrl2GeomT; // default identity
-  static int cn; // number of artificial controls
+  static int cn, lcn; // number of artificial controls
 
   /*****************************************************************************/
   // Physical layer
-  
+
   static int vn, vn3; // vertices number, and geometric dimension
   static int en, en4; // element number
   static _SS_SCALAR totarea, avgarea; // total area and average vertex supporting area
 
   // number and dimension of linear proxies, rotational proxies 
-  static int ln, rn, ln3, rn9; 
+  static int lnn, lnn3;
+  static int ln, ln3; // ln3 = lnn3 + 9*lcn
+  static int rn, rn9; 
 
   //linear proxies
   // static PetscScalar*  linear_proxies; // column major vn3 x ln3
@@ -223,23 +225,23 @@ namespace subspace {
 
   void vMesh::load_linear_proxies_vg(std::vector<int> &group_ids) {
     assert(vn == group_ids.size());
-    ln = *std::max_element(group_ids.begin(), group_ids.end()) + 1; ln3 = 3*ln;
-    std::vector<double> count_vertices; count_vertices.resize(ln);
-    PetscScalar *linear = new PetscScalar[vn3*ln3]; 
-    std::fill(linear, linear+vn3*ln3, 0);
+    lnn = *std::max_element(group_ids.begin(), group_ids.end()) + 1; lnn3 = 3*lnn;
+    std::vector<double> count_vertices; count_vertices.resize(lnn);
+    PetscScalar *linear = new PetscScalar[vn3*lnn3]; 
+    std::fill(linear, linear+vn3*lnn3, 0);
 
     for (int i=0, j=0; i<vn; ++i, j+=3) {
-      linear[3*group_ids[i] + j*ln3] = 1.; // row major
-      linear[3*group_ids[i] +1 + (j+1)*ln3] = 1.; 
-      linear[3*group_ids[i] +2 + (j+2)*ln3] = 1.; 
+      linear[3*group_ids[i] + j*lnn3] = 1.; // row major
+      linear[3*group_ids[i] +1 + (j+1)*lnn3] = 1.; 
+      linear[3*group_ids[i] +2 + (j+2)*lnn3] = 1.; 
       ++count_vertices[group_ids[i]];
     }
     for (int i=0, j=0; i<vn; ++i, j+=3) {
-      linear[3*group_ids[i] + j*ln3] /count_vertices[group_ids[i]]; // normalize
-      linear[3*group_ids[i] +1 + (j+1)*ln3] /= count_vertices[group_ids[i]]; 
-      linear[3*group_ids[i] +2 + (j+2)*ln3] /= count_vertices[group_ids[i]]; 
+      linear[3*group_ids[i] + j*lnn3] /count_vertices[group_ids[i]]; // normalize
+      linear[3*group_ids[i] +1 + (j+1)*lnn3] /= count_vertices[group_ids[i]]; 
+      linear[3*group_ids[i] +2 + (j+2)*lnn3] /= count_vertices[group_ids[i]]; 
     }
-    for (int i=0; i<vn3*ln3; ++i) linear_proxies.push_back(linear[i]);
+    for (int i=0; i<vn3*lnn3; ++i) linear_proxies.push_back(linear[i]);
   }
 
   void vMesh::load_rotational_proxies(std::vector<int> &group_ids) {
@@ -270,9 +272,9 @@ namespace subspace {
     for (int i=0; i<vn; ++i)
       if (cn <= group_ids[i] && group_ids[i] != 0) cn = group_ids[i];
       else if(group_ids[i] == 0) ++M;
-    M = 3*M; cn = M + 12*cn;
+    lcn = cn; M = 3*M; cn = M + 12*cn;
 
-    int N = vn3 + en4 + ln3;
+    int N = vn3 + en4 + lnn3;
     int *nnz = new int [N];
     for (int i=0; i<vn; ++i) {
       is_rigid.push_back(group_ids[i]);
@@ -280,10 +282,12 @@ namespace subspace {
       else nnz[3*i] = nnz[3*i+1] = nnz[3*i+2] = 4;
     }
     for (int i=0; i<en4; ++i) nnz[vn3 + i] = 1;    
-    for (int i=0; i<ln3; ++i)  nnz[vn3 + en4 + i] = 1;
+    for (int i=0; i<lnn3; ++i)  nnz[vn3 + en4 + i] = 1;
 
+    ln3 = lnn3 + 9*lcn;
 
-    MatCreateSeqAIJ(PETSC_COMM_SELF, N, cn + en4 + ln3, 0, nnz, &Ctrl2Geom); //delete [] nnz;
+    MatCreateSeqAIJ(PETSC_COMM_SELF, N, cn + en4 + ln3, 0, nnz, &Ctrl2Geom); 
+    delete [] nnz;
 
     const PetscScalar one = 1;
     for (int i=0, j=0; i<vn; ++i) 
@@ -327,7 +331,7 @@ namespace subspace {
     if (!CR) CR = _SS_MALLOC_SCALAR(rn);
 #endif
 
-    if (!SL_V) SL_V = _SS_MALLOC_SCALAR(vn3*ln3); 
+    if (!SL_V) SL_V = _SS_MALLOC_SCALAR(vn3* ln3); 
     if (!SR_V) SR_V = _SS_MALLOC_SCALAR(vn3*rn9);
     if (!LVS) LVS = _SS_MALLOC_SCALAR (ln3*ln3); 
     if (!MVS) MVS = _SS_MALLOC_SCALAR(ln3*rn9);
@@ -501,12 +505,12 @@ namespace subspace {
   }
 
   void vMesh::compute_subspace_assembly() {
-    int N = vn3 + en4 + ln3; 
+    int N = vn3 + en4 + lnn3; 
     int *nnz = new int[N];
 
-    for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (get_numneighbors(i/3)+1) + 3*ln;
+    for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (get_numneighbors(i/3)+1) + 3*lnn;
     for (int i=0; i<en4; ++i)  nnz[vn3 + i] = 4;// + mesh->neighbors[i/4].size();
-    for (int i=0; i<ln3; ++i)  nnz[vn3+en4 + i] = 1;
+    for (int i=0; i<lnn3; ++i)  nnz[vn3+en4 + i] = 1;
 
     MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 0, nnz, &VS); delete [] nnz;
     MatSetOption(VS, MAT_IGNORE_LOWER_TRIANGULAR, PETSC_TRUE);
@@ -514,12 +518,12 @@ namespace subspace {
     MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 1, PETSC_NULL, &RE);
 
     // create LHS of subspace problem
-    VS_L = new Vec[ln3];
+    VS_L = new Vec[lnn3];
     VS_R = new Vec[rn9];
-    for (int i=0; i<ln3; ++i) MatGetVecs(VS, &VS_L[i], PETSC_NULL);
+    for (int i=0; i<lnn3; ++i) MatGetVecs(VS, &VS_L[i], PETSC_NULL);
     for (int i=0; i<rn9; ++i) MatGetVecs(VS, &VS_R[i], PETSC_NULL);
 
-    for (int i=0; i< ln3; ++i) { 
+    for (int i=0; i< lnn3; ++i) { 
       PetscInt index = i+vn3+en4; PetscScalar one = 1.; 
       VecSet(VS_L[i], 0.);
       VecSetValues(VS_L[i], 1, &index, &one, INSERT_VALUES);
@@ -533,11 +537,11 @@ namespace subspace {
     compute_ARAP_approx();
 
     // assembly VH
-    int *irow = new int[vn3], *icol = new int[ln3];
+    int *irow = new int[vn3], *icol = new int[lnn3];
     for (int i=0; i<vn3; ++i) irow[i] = i;
-    for (int i=0; i<ln3; ++i) icol[i] = vn3 + en4 + i;
+    for (int i=0; i<lnn3; ++i) icol[i] = vn3 + en4 + i;
 
-    MatSetValues(VS, vn3, irow, ln3, icol, &linear_proxies[0], ADD_VALUES);
+    MatSetValues(VS, vn3, irow, lnn3, icol, &linear_proxies[0], ADD_VALUES);
     delete [] irow; delete [] icol;
 
     PetscScalar zero = 0;
@@ -582,21 +586,50 @@ namespace subspace {
 
     MatMatMult(Ctrl2GeomT, Ltmp2, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &L);
 
-    MatDestroy(&Ltmp); MatDestroy(&Ltmp2);
+    MatCreateSeqAIJ(PETSC_COMM_SELF, cn + en4 + ln3, 
+		    cn + en4 + ln3, 1, PETSC_NULL, &Ltmp);
+    for (int i=0;i<lcn; ++i) {
+      for (int j=0; j<9; ++j) {
+	int icols = cn - 12*lcn + 12*i + 3 + j;
+	int irows = cn + en4 + lnn3 + 9*i + j;
+	PetscScalar one = 1;
+	MatSetValues(Ltmp, 1, &icols, 1, &irows, &one, INSERT_VALUES);
+	MatSetValues(Ltmp, 1, &irows, 1, &icols, &one, INSERT_VALUES);
+      }
+    }
+
+    MatAssemblyBegin(Ltmp,MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(Ltmp,MAT_FINAL_ASSEMBLY);
+
+    MatAXPY(L, 1, Ltmp, DIFFERENT_NONZERO_PATTERN);
+    
+    MatDestroy(&Ltmp); MatDestroy(&Ltmp2);    
 
     KSP ksp;
     PC direct_solver;
     Vec * cVS_L = new Vec[ln3], * cVS_R = new Vec[rn9];
     
 
-    for (int i=0; i<ln3; ++i) MatGetVecs(L, &cVS_L[i], PETSC_NULL);
+    for (int i=0; i<lnn3; ++i) MatGetVecs(L, &cVS_L[i], PETSC_NULL);
     for (int i=0; i<rn9; ++i) MatGetVecs(L, &cVS_R[i], PETSC_NULL);
-    for (int i=0; i<ln3; ++i) MatMult(Ctrl2GeomT, VS_L[i], cVS_L[i]);
+    for (int i=0; i<lnn3; ++i) MatMult(Ctrl2GeomT, VS_L[i], cVS_L[i]);
     for (int i=0; i<rn9; ++i) MatMult(Ctrl2GeomT, VS_R[i], cVS_R[i]);
+    for (int i=0; i<lnn3; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
+    for (int i=0; i<rn9; ++i) VecDestroy(&VS_R[i]); delete [] VS_R;
+
+    for (int i=0; i<9*lcn; ++i) {
+      MatGetVecs(L, &cVS_L[lnn3+i], PETSC_NULL);
+      VecSet(cVS_L[lnn3+i], 0.);
+      VecSetValue(cVS_L[lnn3+i], cn + en4 + lnn3 + i, 1., INSERT_VALUES);
+      VecAssemblyBegin(cVS_L[lnn3+i]);
+      VecAssemblyEnd(cVS_L[lnn3+i]);
+    }
+
+
+    /**************************************************/
 
     SL = new Vec[ln3]; SR = new Vec[rn9];
     
-
     VecDuplicateVecs(cVS_L[0], ln3, &SL); VecDuplicateVecs(cVS_R[0], rn9, &SR);
     clock_end();
 
@@ -616,24 +649,22 @@ namespace subspace {
 
 
     //MatDestroy(&L);
-    for (int i=0; i<ln3; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
-    for (int i=0; i<rn9; ++i) VecDestroy(&VS_R[i]); delete [] VS_R;
     KSPDestroy(&ksp);
 
     clock_end();
-
     /**************************************************/
     // copy subspace solution data to global array
     clock_start("Preparing display layer");
 
     Vec tmp; MatGetVecs(VS, &tmp, PETSC_NULL);
 
-     for (int i=0; i<ln3; ++i) {
+    for (int i=0; i<ln3; ++i) {
       PetscScalar *buffer;
       MatMult(Ctrl2Geom, SL[i], tmp);
       VecGetArray(tmp, &buffer);
       for (int j=0; j<vn3; ++j) SL_V[vn3*i+j] = buffer[j];
     }
+
     for (int i=0; i<rn9; ++i) {
       PetscScalar *buffer;
       MatMult(Ctrl2Geom, SR[i], tmp);
