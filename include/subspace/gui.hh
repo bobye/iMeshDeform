@@ -4,8 +4,41 @@
 #include <vector>
 #include "subspace.hh"
 #include <GL/glut.h>
-
+typedef std::vector< Point > ConstraintPointList
 namespace subspace {
+
+  class Animator {
+  public:
+    std::vector< std::vector<float> > constraints; 
+    std::vector< ConstraintPointList > constraint_points_list;
+    std::vector< XForm > projections;
+    std::vector< XForm > modelmatrixes;
+    std::vector< XForm > objectmatrixes;
+    int frame_num;
+  public:
+    Animator() {frame_num = 0;};
+    void reset() { frame_num = 0; constraints.clear(); constraints_points_list.clear(); projections.clear(); modelmatrixes.clear(); objectmatrixes.clear(); }
+    Animator merge(const Animator& other) {
+      Animator new;
+      return new;
+    }
+
+    bool add_frame() {
+      return true;
+    }
+    
+    int run() {
+      
+    }
+
+    bool read(const char* file_name) {
+
+    }
+
+    bool write(const char* file_name) {
+
+    }
+  } 
 
   class Geometry {
   public:
@@ -70,7 +103,7 @@ namespace subspace {
     HandlerSelect(Object*);
     Object  *object;
     Subspace *ss_solver;
-
+    int animate_mode;  //0 normal mode; 1 recording mode; 2 play mode;
     void add_rigid(bool*);
     void add_constraint(bool*);
 
@@ -85,7 +118,7 @@ namespace subspace {
     void update(bool inf=false);
 
     void draw(double);
-
+    
 
     void set_solver(Subspace *);
     void unset_solver();
@@ -105,7 +138,9 @@ namespace subspace {
 
     void set_buffer();
     void restore_buffer();
-
+    
+    int (*animator)();
+    
     Point cursor;
     // transformer
 
@@ -123,7 +158,8 @@ namespace subspace {
     void bind(Object*);
     void bind(Subspace*);
     void view();
-
+    void set_animator( int (*func)());
+    int animate();
     void read(std::string ); 
     void write(std::string );
 
