@@ -10,6 +10,13 @@
 *.xf
 *.ppm
 *.id
+*.png
+*.ss
 
 # Caches
+*.o
 CMakeCache.txt
+CMakeFiles/*
+
+# 3rd Party
+3rd-party/*
