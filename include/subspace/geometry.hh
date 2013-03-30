@@ -13,7 +13,7 @@ namespace subspace {
   typedef trimesh::TriMesh Mesh2d;
   typedef trimesh::TetMesh Mesh3d;
   typedef trimesh::fxform XForm;
-  
+  typedef std::vector< Point > ConstraintPointList;
 
   //  typedef Mesh2d        Mesh;
 

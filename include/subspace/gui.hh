@@ -4,9 +4,9 @@
 #include <vector>
 #include "subspace.hh"
 #include <GL/glut.h>
-typedef std::vector< Point > ConstraintPointList
-namespace subspace {
 
+namespace subspace {
+  class Scene;
   class Animator {
   public:
     std::vector< std::vector<float> > constraints; 
@@ -14,31 +14,31 @@ namespace subspace {
     std::vector< XForm > projections;
     std::vector< XForm > modelmatrixes;
     std::vector< XForm > objectmatrixes;
-    int frame_num;
+    int numberofframes;
   public:
-    Animator() {frame_num = 0;};
-    void reset() { frame_num = 0; constraints.clear(); constraints_points_list.clear(); projections.clear(); modelmatrixes.clear(); objectmatrixes.clear(); }
+    Animator() {numberofframes = 0;};
+    void reset() { numberofframes = 0; constraints.clear(); constraint_points_list.clear(); projections.clear(); modelmatrixes.clear(); objectmatrixes.clear(); }
     Animator merge(const Animator& other) {
-      Animator new;
-      return new;
+      Animator newAnimator;
+      return newAnimator;
     }
 
     bool add_frame() {
       return true;
     }
     
-    int run() {
-      
+    int run(Scene* currentScene) {
+      return 0;
     }
 
-    bool read(const char* file_name) {
-
+    bool read(const char* filename) {
+      return true;
     }
 
-    bool write(const char* file_name) {
-
+    bool write(const char* filename) {
+      return true;
     }
-  } 
+  }; 
 
   class Geometry {
   public:

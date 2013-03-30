@@ -164,6 +164,15 @@ namespace subspace {
 
   }
 
+  void Scene::set_animator( int (*func)()) {
+    animator = func;
+  }
+
+  void animate() {
+    if ((*currentScene->animator)() == 0) glutIdleFunc(NULL);
+    glutPostRedisplay();
+  }
+
 
   void display_text() {
     glColor3f(0.0, 1.0, 0.0); // Green
@@ -505,11 +514,22 @@ namespace subspace {
       glutPostRedisplay();
     }
     else if(key == 'e') {
-      currentScene->render_mode = 1;
-      glutPostRedisplay();
-      glClearColor(1.0,1.0,1.0,0.0);
+      if(currentScene->render_mode==0) {
+	currentScene->render_mode = 1;
+	glutPostRedisplay();
+	glClearColor(1.0,1.0,1.0,0.0);
+      }
+      else
+      {
+	currentScene->render_mode = 0;
+	glutPostRedisplay();
+	glClearColor(0.0,0.0,0.0,0.0);
+      }
     }
-
+    if (key == 'L')
+    {
+      
+    }
     if (key == 9) {// TAB key, switch between selection mode and normal mode
       if (current_state & LOCK_MODE_SELECT ) { // return to normal mode
 	current_state = 0;
