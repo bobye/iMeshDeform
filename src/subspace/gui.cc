@@ -1109,7 +1109,7 @@ namespace subspace {
     object->xf.write(filename + ".obj.xf"); xf_rtsc = xf_rtsc * object->xf;
 
     std::string mesh_export = filename + ".obj.off";
-    object->mesh->write(mesh_export.c_str());
+    object->mesh->write_deformed_surface_mesh(mesh_export.c_str());
     
     xf_rtsc[14] -= camera_displace;
     xf_rtsc.write(filename + ".obj.rtsc.xf"); 
