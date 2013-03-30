@@ -11,19 +11,59 @@ namespace subspace {
   public:
     std::vector< std::vector<float> > constraints; 
     std::vector< ConstraintPointList > constraint_points_list;
-    std::vector< XForm > projections;
+    std::vector< XForm > projectionmatrixes;
     std::vector< XForm > modelmatrixes;
     std::vector< XForm > objectmatrixes;
     int numberofframes;
   public:
     Animator() {numberofframes = 0;};
-    void reset() { numberofframes = 0; constraints.clear(); constraint_points_list.clear(); projections.clear(); modelmatrixes.clear(); objectmatrixes.clear(); }
+    Animator(const Animator& other) {
+      this->numberofframes = other.numberofframes;
+      this->constraints = other.constraints;
+      this->constraint_points_list = other.constraint_points_list;
+      this->projectionmatrixes = other.projectionmatrixes;
+      this->modelmatrixes = other.modelmatrixes;
+      this->objectmatrixes = other.objectmatrixes;
+    }
+    void reset() { numberofframes = 0; constraints.clear(); constraint_points_list.clear(); projectionmatrixes.clear(); modelmatrixes.clear(); objectmatrixes.clear(); }
     Animator merge(const Animator& other) {
-      Animator newAnimator;
+      if(this->numberofframes>0) {
+	Animator newAnimator(*this);
+	if(newAnimator.constraints.empty())
+	  newAnimator.constraints = other.constraints;
+	if(newAnimator.constraint_points_list.empty())
+	  newAnimator.constraint_points_list = other.constraint_points_list;
+	if(newAnimator.projectionmatrixes.empty())
+	  newAnimator.projectionmatrixes = other.projectionmatrixes;
+	if(newAnimator.modelmatrixes.empty())
+	  newAnimator.modelmatrixes = other.modelmatrixes;
+	if(newAnimator.objectmatrixes.empty())
+	  newAnimator.objectmatrixes = other.objectmatrixes;
+      }
+      else {
+	Animator newAnimator(other);
+      }
       return newAnimator;
     }
-
-    bool add_frame() {
+    bool set_constraints(const std::vector< std::vector<float> >& con) {
+      if(con.empty()) {
+	printf("No Constrains while calling set_constraints.\n");
+	return false;
+      }
+      this->constraints = con;
+      return true;
+    }
+    bool add_frame(ConstraintPointList* cp, XForm* proj, XForm* model, XForm* obj) {
+      if(cp==NULL && proj==NULL && model==NULL && obj==NULL ){
+	printf("Nothing to be added to current animator frame.\n");
+	return false;
+      }
+      if(cp!=NULL)
+	constraint_points_list.push_back(cp);
+      if(proj!=NULL)
+	projectionmatrixes.push_back(proj);
+      if(model!=NULL)
+	modelmatrixes.push_back(model);
       return true;
     }
     
