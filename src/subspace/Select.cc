@@ -38,14 +38,14 @@ namespace subspace {
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);//(NEW) setup our buffers
     /** CullFace enable */
     glEnable(GL_CULL_FACE);
-    /*
+
     glPushMatrix();
     glPolygonMode(GL_FRONT, GL_FILL);
     glColorPointer(3, GL_UNSIGNED_BYTE, 0, black);
     object->back_draw();
     glPopMatrix();
-    */
-    glPushMatrix();
+
+    glPushMatrix(); 
     glPolygonMode(GL_FRONT, GL_POINT);
     glColorPointer(3, GL_UNSIGNED_BYTE, 0, index);
     object->back_draw();
