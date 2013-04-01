@@ -65,6 +65,9 @@ namespace subspace {
   const GLfloat mat_shininess[] = {100};
 
   const GLfloat perfect_factor = 1.414;
+
+  int record_switch = 0;
+
   void get_window_world_radio();
   inline void MatxTranslate(GLfloat* Mat, GLfloat* BMat, GLdouble x, GLdouble y, GLdouble z) {
     for (int i=0; i<12; ++i) Mat[i] = BMat[i];
@@ -170,6 +173,14 @@ namespace subspace {
   }
 
   int record_animate() {
+
+    if(currentScene->animator==NULL)
+      currentScene->animator = new Animator();
+    XForm proj, model;
+    glGetFloatv( GL_PROJECTION_MATRIX, proj);
+    glGetFloatv( GL_MODELVIEW_MATRIX, model);
+    currentScene->animator->add_frame(NULL, &proj, &model, &currentScene->object->xf);
+    currentScene->handsel->record();
     return 1;
   }
   int play_animate() {
@@ -177,7 +188,12 @@ namespace subspace {
   }
 
   void animate() {
-    if ((*currentScene->animatorfunc)() == 0) glutIdleFunc(NULL);
+
+    if ((*currentScene->animatorfunc)() == 0) {
+      glutIdleFunc(NULL);
+      delete currentScene->animator;
+      currentScene->animator = NULL;
+    }
     get_window_world_radio();
     glutPostRedisplay();
   }
@@ -536,20 +552,63 @@ namespace subspace {
       }
     }
     else if (key == 'l') {//record animate
-      /*printf("Please Enter Animator File Name: ");
-      char filepath[256];
-      scanf("%s",filepath);
-      currentScene->animator->read(filepath);*/
-      currentScene->set_animator(&record_animate);
-      glutIdleFunc(animate);
-      glutPostRedisplay();
+
+      if(record_switch==0) {
+	//currentScene->animator = new Animator();
+	record_switch = 1;
+	if(currentScene->handsel->animator!=NULL){
+	  currentScene->handsel->animator->clear();
+	  delete currentScene->handsel->animator;
+	  currentScene->handsel->animator = NULL;
+	}
+	  
+	currentScene->handsel->record();
+	//currentScene->set_animator(&record_animate);
+	//glutIdleFunc(animate);
+	//glutPostRedisplay();
+      }
+      else {
+	char text[256];
+	printf("Please Enter File Name: ");
+	char cc = getchar();
+	if(cc!='\n') {
+	  int cci=0;
+	  text[cci++] = cc;
+	  while(1) {
+	    cc = getchar();
+	    if(cc=='\n'){
+	      text[cci] = '\0';
+	      break;
+	    }
+	    text[cci++] = cc;
+	  }
+	  currentScene->handsel->write_record(text);
+	}
+	else
+	  printf("\n Cancel Writing...");
+	//char fix[32] = "_scene.anim";
+	//strcat(text,fix);
+	//currentScene->animator->write(text);
+	//animator->clear();
+	//delete currentScene->animator;
+	//currentScene->animator = NULL;
+	printf("\n");
+	record_switch = 0;
+      }
     }
     else if ( key == 'L') {//play animate
       printf("Please Enter Animator File Name: ");
       char filepath[256];
       scanf("%s",filepath);
       currentScene->animator = new Animator();//change to a vector
-      currentScene->animator->read(filepath);
+      bool res = currentScene->animator->read(filepath);
+      if(res==false)
+	return;
+      if(!currentScene->animator->constraint_points_list.empty()) {
+	currentScene->ss_solver->prepare(currentScene->animator->constraints, currentScene->animator->constraint_points_list[0]);
+	 
+      }
+
       currentScene->set_animator(&play_animate);
       glutIdleFunc(animate);
       glutPostRedisplay();
@@ -874,6 +933,8 @@ namespace subspace {
     if(currentScene->context == currentScene->handsel &&
        (current_state & (LOCK_OBJECT_ROTATE|LOCK_OBJECT_TRANSLATE))) {
       currentScene->handsel->update();
+      if(record_switch==1)
+	currentScene->handsel->record();
     }
 
   }
