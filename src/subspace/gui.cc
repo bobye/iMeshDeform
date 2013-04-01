@@ -65,7 +65,9 @@ namespace subspace {
   const GLfloat mat_shininess[] = {100};
 
   const GLfloat perfect_factor = 1.414;
+
   int record_switch = 0;
+
   void get_window_world_radio();
   inline void MatxTranslate(GLfloat* Mat, GLfloat* BMat, GLdouble x, GLdouble y, GLdouble z) {
     for (int i=0; i<12; ++i) Mat[i] = BMat[i];
@@ -171,6 +173,7 @@ namespace subspace {
   }
 
   int record_animate() {
+
     if(currentScene->animator==NULL)
       currentScene->animator = new Animator();
     XForm proj, model;
@@ -185,6 +188,7 @@ namespace subspace {
   }
 
   void animate() {
+
     if ((*currentScene->animatorfunc)() == 0) {
       glutIdleFunc(NULL);
       delete currentScene->animator;
@@ -548,6 +552,7 @@ namespace subspace {
       }
     }
     else if (key == 'l') {//record animate
+
       if(record_switch==0) {
 	//currentScene->animator = new Animator();
 	record_switch = 1;
@@ -603,6 +608,7 @@ namespace subspace {
 	currentScene->ss_solver->prepare(currentScene->animator->constraints, currentScene->animator->constraint_points_list[0]);
 	 
       }
+
       currentScene->set_animator(&play_animate);
       glutIdleFunc(animate);
       glutPostRedisplay();

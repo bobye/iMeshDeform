@@ -17,12 +17,10 @@ namespace subspace{
     projectionmatrixes.clear(); 
     modelmatrixes.clear(); 
     objectmatrixes.clear(); 
-    //reset();
   }
   void Animator::reset(Scene* cs) {
     currentframeid = 0;
     // reset Scene 
-    
   }
   Animator Animator::merge(const Animator& other) {
     if(this->numberofframes>0) {
@@ -47,12 +45,14 @@ namespace subspace{
     }
     
   }
+
   bool Animator::set_constraints(Subspace* ss_solver, const std::vector< std::vector<float> >& con) {
     if(con.empty()) {
       printf("No Constrains while calling set_constraints.\n");
       return false;
     }
     this->constraints = con;
+
     if(constraint_points_list.empty()) {
       printf("Please add one frame first, then set constraints!");
       return false;
@@ -78,6 +78,7 @@ namespace subspace{
   }
     
   int Animator::run(Scene* currentScene) {
+
     if(!constraint_points_list.empty()){
       //set constraints' positions
       bool inf = false;
@@ -96,6 +97,7 @@ namespace subspace{
       glMultMatrixf(modelmatrixes[currentframeid]);
     }
     if(!objectmatrixes.empty()) {
+
       currentScene->object->xf = objectmatrixes[currentframeid];
     }
     
@@ -107,6 +109,7 @@ namespace subspace{
 
   bool Animator::read(const char* filename) {
     std::ifstream ifs(filename);
+
     if(!ifs.is_open()){
       printf("No Such File...\n");
       return false;
@@ -125,7 +128,7 @@ namespace subspace{
       }
       constraints.push_back(cp);
     }
-   
+
     for(int i=0; i<cplsize; i++) {
       std::vector< Point > temppointlist;
       for(int j=0; j<csize; j++) {
@@ -137,25 +140,24 @@ namespace subspace{
       }
       constraint_points_list.push_back(temppointlist);
     }
-   
+
     for(int i=0; i<projsize; i++) {
       XForm tempproj;
       ifs >> tempproj;
       projectionmatrixes.push_back(tempproj);
     }
-    
+
     for(int i=0; i<modelsize; i++) {
       XForm tempmodel;
       ifs >> tempmodel;
       modelmatrixes.push_back(tempmodel);
     }
-    
+
     for(int i=0; i<objsize; i++) {
       XForm tempobj;
       ifs >> tempobj;
       objectmatrixes.push_back(tempobj);
     }
-   
     ifs.close();
     return true;
   }
@@ -169,9 +171,11 @@ namespace subspace{
      * the rest lines: constraint points list and the three xforms output one by one, and one frame a line for all the for above. 
      */
     //Line 1
+
     if(!ofs.is_open()){
       printf("No Such File...\n");
     }
+
     ofs << numberofframes << " ";
     ofs << (int)constraints.size() << " ";
     if(constraints.empty())
@@ -206,7 +210,9 @@ namespace subspace{
     for(int i=0; i<objectmatrixes.size(); i++) {
       ofs << objectmatrixes[i];
     }
+
     ofs.close();
+
     return true;
   }
 }

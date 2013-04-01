@@ -27,6 +27,7 @@ namespace subspace {
     void reset(Scene* cs=NULL);
     void clear();
     Animator merge(const Animator& other);
+
     bool set_constraints(Subspace* ss_solver,const std::vector< std::vector<float> >& con);
     bool add_frame(ConstraintPointList* cp, XForm* proj, XForm* model, XForm* obj);
     void remove_constrains() { constraints.clear(); constraint_points_list.clear(); }
@@ -103,6 +104,7 @@ namespace subspace {
     HandlerSelect(Object*);
     Object  *object;
     Subspace *ss_solver;
+
     Animator *animator;
     void add_rigid(bool*);
     void add_constraint(bool*);
