@@ -11,33 +11,33 @@ namespace subspace {
   public:
     std::vector< std::vector<float> > constraints; 
     std::vector< ConstraintPointList > constraint_points_list;
-    std::vector< XForm > projections;
+    std::vector< XForm > projectionmatrixes;
     std::vector< XForm > modelmatrixes;
     std::vector< XForm > objectmatrixes;
     int numberofframes;
+    int currentframeid;
+    std::vector<float> original_constraints;
+    ConstraintPointList original_constraint_points;
+    XForm original_projection;
+    XForm original_model;
+    XForm original_object;
   public:
-    Animator() {numberofframes = 0;};
-    void reset() { numberofframes = 0; constraints.clear(); constraint_points_list.clear(); projections.clear(); modelmatrixes.clear(); objectmatrixes.clear(); }
-    Animator merge(const Animator& other) {
-      Animator newAnimator;
-      return newAnimator;
-    }
+    Animator() {numberofframes = 0;currentframeid=0;};
+    Animator(const Animator& other);
+    void reset(Scene* cs=NULL);
+    void clear();
+    Animator merge(const Animator& other);
+    bool set_constraints(Scene* currentScene,const std::vector< std::vector<float> >& con);
+    bool add_frame(ConstraintPointList* cp, XForm* proj, XForm* model, XForm* obj);
+    void remove_constrains() { constraints.clear(); constraint_points_list.clear(); }
+    void remove_constrain_points() { constraint_points_list.clear(); }
+    void remove_scene_matrixes() { projectionmatrixes.clear(); modelmatrixes.clear(); }
+    void remove_object_matrixes() { objectmatrixes.clear(); }
+    int run(Scene* currentScene);
 
-    bool add_frame() {
-      return true;
-    }
-    
-    int run(Scene* currentScene) {
-      return 0;
-    }
+    bool read(const char* filename);
 
-    bool read(const char* filename) {
-      return true;
-    }
-
-    bool write(const char* filename) {
-      return true;
-    }
+    bool write(const char* filename);
   }; 
 
   class Geometry {
@@ -103,7 +103,7 @@ namespace subspace {
     HandlerSelect(Object*);
     Object  *object;
     Subspace *ss_solver;
-    int animate_mode;  //0 normal mode; 1 recording mode; 2 play mode;
+    
     void add_rigid(bool*);
     void add_constraint(bool*);
 
@@ -132,15 +132,14 @@ namespace subspace {
     VertSelect *vertsel;
     HandlerSelect *handsel;
     Geometry *context;//default set to object
-
+    Animator *animator;
     Subspace *ss_solver;//subspace solver
     int render_mode; //0: default black scene; 1: white scene without grid, text and constraint point
 
     void set_buffer();
     void restore_buffer();
     
-    int (*animator)();
-    
+    int (*animatorfunc)();
     Point cursor;
     // transformer
 
@@ -159,7 +158,6 @@ namespace subspace {
     void bind(Subspace*);
     void view();
     void set_animator( int (*func)());
-    int animate();
     void read(std::string ); 
     void write(std::string );
 
