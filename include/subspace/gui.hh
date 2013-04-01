@@ -15,69 +15,29 @@ namespace subspace {
     std::vector< XForm > modelmatrixes;
     std::vector< XForm > objectmatrixes;
     int numberofframes;
+    int currentframeid;
+    std::vector<float> original_constraints;
+    ConstraintPointList original_constraint_points;
+    XForm original_projection;
+    XForm original_model;
+    XForm original_object;
   public:
-    Animator() {numberofframes = 0;};
-    Animator(const Animator& other) {
-      this->numberofframes = other.numberofframes;
-      this->constraints = other.constraints;
-      this->constraint_points_list = other.constraint_points_list;
-      this->projectionmatrixes = other.projectionmatrixes;
-      this->modelmatrixes = other.modelmatrixes;
-      this->objectmatrixes = other.objectmatrixes;
-    }
-    void reset() { numberofframes = 0; constraints.clear(); constraint_points_list.clear(); projectionmatrixes.clear(); modelmatrixes.clear(); objectmatrixes.clear(); }
-    Animator merge(const Animator& other) {
-      if(this->numberofframes>0) {
-	Animator newAnimator(*this);
-	if(newAnimator.constraints.empty())
-	  newAnimator.constraints = other.constraints;
-	if(newAnimator.constraint_points_list.empty())
-	  newAnimator.constraint_points_list = other.constraint_points_list;
-	if(newAnimator.projectionmatrixes.empty())
-	  newAnimator.projectionmatrixes = other.projectionmatrixes;
-	if(newAnimator.modelmatrixes.empty())
-	  newAnimator.modelmatrixes = other.modelmatrixes;
-	if(newAnimator.objectmatrixes.empty())
-	  newAnimator.objectmatrixes = other.objectmatrixes;
-      }
-      else {
-	Animator newAnimator(other);
-      }
-      return newAnimator;
-    }
-    bool set_constraints(const std::vector< std::vector<float> >& con) {
-      if(con.empty()) {
-	printf("No Constrains while calling set_constraints.\n");
-	return false;
-      }
-      this->constraints = con;
-      return true;
-    }
-    bool add_frame(ConstraintPointList* cp, XForm* proj, XForm* model, XForm* obj) {
-      if(cp==NULL && proj==NULL && model==NULL && obj==NULL ){
-	printf("Nothing to be added to current animator frame.\n");
-	return false;
-      }
-      if(cp!=NULL)
-	constraint_points_list.push_back(cp);
-      if(proj!=NULL)
-	projectionmatrixes.push_back(proj);
-      if(model!=NULL)
-	modelmatrixes.push_back(model);
-      return true;
-    }
-    
-    int run(Scene* currentScene) {
-      return 0;
-    }
+    Animator() {numberofframes = 0;currentframeid=0;};
+    Animator(const Animator& other);
+    void reset(Scene* cs=NULL);
+    void clear();
+    Animator merge(const Animator& other);
+    bool set_constraints(Scene* currentScene,const std::vector< std::vector<float> >& con);
+    bool add_frame(ConstraintPointList* cp, XForm* proj, XForm* model, XForm* obj);
+    void remove_constrains() { constraints.clear(); constraint_points_list.clear(); }
+    void remove_constrain_points() { constraint_points_list.clear(); }
+    void remove_scene_matrixes() { projectionmatrixes.clear(); modelmatrixes.clear(); }
+    void remove_object_matrixes() { objectmatrixes.clear(); }
+    int run(Scene* currentScene);
 
-    bool read(const char* filename) {
-      return true;
-    }
+    bool read(const char* filename);
 
-    bool write(const char* filename) {
-      return true;
-    }
+    bool write(const char* filename);
   }; 
 
   class Geometry {
@@ -143,7 +103,7 @@ namespace subspace {
     HandlerSelect(Object*);
     Object  *object;
     Subspace *ss_solver;
-    int animate_mode;  //0 normal mode; 1 recording mode; 2 play mode;
+    
     void add_rigid(bool*);
     void add_constraint(bool*);
 
@@ -172,15 +132,14 @@ namespace subspace {
     VertSelect *vertsel;
     HandlerSelect *handsel;
     Geometry *context;//default set to object
-
+    Animator *animator;
     Subspace *ss_solver;//subspace solver
     int render_mode; //0: default black scene; 1: white scene without grid, text and constraint point
 
     void set_buffer();
     void restore_buffer();
     
-    int (*animator)();
-    
+    int (*animatorfunc)();
     Point cursor;
     // transformer
 
@@ -199,7 +158,6 @@ namespace subspace {
     void bind(Subspace*);
     void view();
     void set_animator( int (*func)());
-    int animate();
     void read(std::string ); 
     void write(std::string );
 
