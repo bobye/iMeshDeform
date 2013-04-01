@@ -65,7 +65,7 @@ namespace subspace {
   const GLfloat mat_shininess[] = {100};
 
   const GLfloat perfect_factor = 1.414;
-
+  void get_window_world_radio();
   inline void MatxTranslate(GLfloat* Mat, GLfloat* BMat, GLdouble x, GLdouble y, GLdouble z) {
     for (int i=0; i<12; ++i) Mat[i] = BMat[i];
     Mat[12] = BMat[12] + BMat[0] * x + BMat[4] * y + BMat[8] * z;
@@ -164,12 +164,21 @@ namespace subspace {
 
   }
 
+
   void Scene::set_animator( int (*func)()) {
-    animator = func;
+    animatorfunc = func;
+  }
+
+  int record_animate() {
+    return 1;
+  }
+  int play_animate() {
+    return currentScene->animator->run(currentScene);
   }
 
   void animate() {
-    if ((*currentScene->animator)() == 0) glutIdleFunc(NULL);
+    if ((*currentScene->animatorfunc)() == 0) glutIdleFunc(NULL);
+    get_window_world_radio();
     glutPostRedisplay();
   }
 
@@ -526,9 +535,24 @@ namespace subspace {
 	glClearColor(0.0,0.0,0.0,0.0);
       }
     }
-    if (key == 'L')
-    {
-      
+    else if (key == 'l') {//record animate
+      /*printf("Please Enter Animator File Name: ");
+      char filepath[256];
+      scanf("%s",filepath);
+      currentScene->animator->read(filepath);*/
+      currentScene->set_animator(&record_animate);
+      glutIdleFunc(animate);
+      glutPostRedisplay();
+    }
+    else if ( key == 'L') {//play animate
+      printf("Please Enter Animator File Name: ");
+      char filepath[256];
+      scanf("%s",filepath);
+      currentScene->animator = new Animator();//change to a vector
+      currentScene->animator->read(filepath);
+      currentScene->set_animator(&play_animate);
+      glutIdleFunc(animate);
+      glutPostRedisplay();
     }
     if (key == 9) {// TAB key, switch between selection mode and normal mode
       if (current_state & LOCK_MODE_SELECT ) { // return to normal mode
@@ -1120,6 +1144,8 @@ namespace subspace {
     glutPostRedisplay();
     glClearColor(0.0,0.0,0.0,0.0);
   }
+
+
 }
 
 
