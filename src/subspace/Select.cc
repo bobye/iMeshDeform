@@ -38,14 +38,14 @@ namespace subspace {
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);//(NEW) setup our buffers
     /** CullFace enable */
     glEnable(GL_CULL_FACE);
-
+    /*
     glPushMatrix();
     glPolygonMode(GL_FRONT, GL_FILL);
     glColorPointer(3, GL_UNSIGNED_BYTE, 0, black);
     object->back_draw();
     glPopMatrix();
-
-    glPushMatrix(); 
+    */
+    glPushMatrix();
     glPolygonMode(GL_FRONT, GL_POINT);
     glColorPointer(3, GL_UNSIGNED_BYTE, 0, index);
     object->back_draw();
@@ -128,7 +128,7 @@ namespace subspace {
     vn = obj->mesh->numberofvertices;
     pn = obj->mesh->numberofpoints;
     //is_vertex_rigid.resize(vn);
-
+    animator=NULL;
     xf = XForm::identity();//for (int i=0; i< 16; ++i) xf[i] = (i%5 ==0);
     ss_solver = NULL;
   };
@@ -327,5 +327,26 @@ namespace subspace {
     if (count) 
       return  (float) (1./(float) count) * pbuf;
     else return object->center;
+  }
+  
+  void HandlerSelect::record() {
+    if(animator==NULL){
+      animator = new Animator();
+      animator->constraints = constraints;
+    }
+    animator->add_frame(&constraint_points, NULL, NULL, NULL);
+    
+  }
+  
+  void HandlerSelect::write_record(const char* str) {
+    char text[256];
+    strcpy(text,str);
+    char fix[32] = "_hansel.anim";
+    strcat(text,fix);
+    animator->write(text);
+    printf("Finish Writing %d Constraints in %d Frames\n",(int)animator->constraints.size(), animator->numberofframes);
+    animator->clear();
+    delete animator;
+    animator = NULL;
   }
 }

@@ -17,11 +17,12 @@ namespace subspace{
     projectionmatrixes.clear(); 
     modelmatrixes.clear(); 
     objectmatrixes.clear(); 
-    reset();
+    //reset();
   }
   void Animator::reset(Scene* cs) {
     currentframeid = 0;
     // reset Scene 
+    
   }
   Animator Animator::merge(const Animator& other) {
     if(this->numberofframes>0) {
@@ -46,13 +47,17 @@ namespace subspace{
     }
     
   }
-  bool Animator::set_constraints(Scene* currentScene, const std::vector< std::vector<float> >& con) {
+  bool Animator::set_constraints(Subspace* ss_solver, const std::vector< std::vector<float> >& con) {
     if(con.empty()) {
       printf("No Constrains while calling set_constraints.\n");
       return false;
     }
     this->constraints = con;
-    currentScene->handsel->set_solver(currentScene->ss_solver);
+    if(constraint_points_list.empty()) {
+      printf("Please add one frame first, then set constraints!");
+      return false;
+    }
+    ss_solver->prepare(constraints, constraint_points_list[0]);
     return true;
   }
   bool Animator::add_frame(ConstraintPointList* cp, XForm* proj, XForm* model, XForm* obj) {
@@ -73,33 +78,27 @@ namespace subspace{
   }
     
   int Animator::run(Scene* currentScene) {
-    printf("%d/%d\n",currentframeid,numberofframes);
     if(!constraint_points_list.empty()){
       //set constraints' positions
-      printf("constraint_points not empty\n");
       bool inf = false;
       if(currentframeid==0||currentframeid==numberofframes-1)
 	inf = true;
       if (currentScene->ss_solver) currentScene->ss_solver->update(constraint_points_list[currentframeid], inf);
     }
     if(!projectionmatrixes.empty()) {
-      printf("proj not empty\n");
       glMatrixMode(GL_PROJECTION);
       glLoadIdentity();
       glMultMatrixf(projectionmatrixes[currentframeid]);
     }
     if(!modelmatrixes.empty()) {
-      printf("model not empty\n");
       glMatrixMode(GL_MODELVIEW);    
       glLoadIdentity();
       glMultMatrixf(modelmatrixes[currentframeid]);
     }
     if(!objectmatrixes.empty()) {
-      printf("obj not empty\n");
       currentScene->object->xf = objectmatrixes[currentframeid];
     }
     
-    char ccc = getchar();
     currentframeid++;
     if(currentframeid>=numberofframes)
       return 0;
@@ -108,6 +107,10 @@ namespace subspace{
 
   bool Animator::read(const char* filename) {
     std::ifstream ifs(filename);
+    if(!ifs.is_open()){
+      printf("No Such File...\n");
+      return false;
+    }
     //Line 1
     ifs >> numberofframes;
     int pn; //constraints degree;
@@ -122,8 +125,7 @@ namespace subspace{
       }
       constraints.push_back(cp);
     }
-    printf("csize:%d  pn:%d  cplsize:%d  projsize:%d  modelsize:%d  objsize:%d\n", csize,pn,cplsize,projsize,modelsize,objsize);
-    printf("here1\n");
+   
     for(int i=0; i<cplsize; i++) {
       std::vector< Point > temppointlist;
       for(int j=0; j<csize; j++) {
@@ -135,25 +137,26 @@ namespace subspace{
       }
       constraint_points_list.push_back(temppointlist);
     }
-    printf("here2\n");
+   
     for(int i=0; i<projsize; i++) {
       XForm tempproj;
       ifs >> tempproj;
       projectionmatrixes.push_back(tempproj);
     }
-    printf("here3\n");
+    
     for(int i=0; i<modelsize; i++) {
       XForm tempmodel;
       ifs >> tempmodel;
       modelmatrixes.push_back(tempmodel);
     }
-    printf("here4\n");
+    
     for(int i=0; i<objsize; i++) {
       XForm tempobj;
       ifs >> tempobj;
       objectmatrixes.push_back(tempobj);
     }
-    printf("here5\n");
+   
+    ifs.close();
     return true;
   }
 
@@ -166,6 +169,9 @@ namespace subspace{
      * the rest lines: constraint points list and the three xforms output one by one, and one frame a line for all the for above. 
      */
     //Line 1
+    if(!ofs.is_open()){
+      printf("No Such File...\n");
+    }
     ofs << numberofframes << " ";
     ofs << (int)constraints.size() << " ";
     if(constraints.empty())
@@ -200,6 +206,7 @@ namespace subspace{
     for(int i=0; i<objectmatrixes.size(); i++) {
       ofs << objectmatrixes[i];
     }
+    ofs.close();
     return true;
   }
 }
