@@ -49,20 +49,20 @@ namespace subspace {
 
   static XForm CTM;//static GLfloat CTM[16];  
 
-  const GLfloat light_ambient[] = { .4, .4, .4, 1.0 };
-  const GLfloat light_diffuse[] = { .8, .8, .8, 1.0 };
-  const GLfloat light_specular[] = { .5, .5, .5, 1.0 };
+  const GLfloat light_ambient[][4] = {{ .4, .4, .4, 1.0 }, { .15, .15, .15, 1.0 }};
+  const GLfloat light_diffuse[][4] = {{ .8, .8, .8, 1.0 }, { 1, 1, 1, 1.0 }};
+  const GLfloat light_specular[][4] = {{ .5, .5, .5, 1.0 }, { .3, .3, .3, 1.0 }};
 
 
 
-  const GLfloat light_position0[] = { 1.0, 1.0, 1.0, 0.0 };
-  const GLfloat light_position1[] = { -1.0, -1.0, -1.0, .0};
+  const GLfloat light_position0[][4] = {{ 1.0, 1.0, 1.0, 0.0 },{ 0.0, 0.0, 1.0, 0.0 }} ;
+  const GLfloat light_position1[][4] = {{ -1.0, -1.0, -1.0, .0}, { -1.0, -1.0, -1.0, .0}};
 
-  const GLfloat mat_ambient[] = { .5, .5, .5, 1.0 };
-  const GLfloat mat_emission[] = { 0, 0, 0, 0.6 };
-  const GLfloat mat_diffuse[] = { .5, .5, .5, .6 };
-  const GLfloat mat_specular[] = { .1, .1, .1, .6 };
-  const GLfloat mat_shininess[] = {100};
+  const GLfloat mat_ambient[][4] = {{ .5, .5, .5, 1.0 }, { .0, .0, .0, 1.0 }};
+  const GLfloat mat_emission[][4] = {{ 0, 0, 0, 0.6 }, { .0, .0, .0, 0.6 }};
+  const GLfloat mat_diffuse[][4] = {{ .5, .5, .5, .6 }, { 1., 1., 1., .6 }};
+  const GLfloat mat_specular[][4] = {{ .1, .1, .1, .6 }, { .8, .8, .8, .6 }};
+  const GLfloat mat_shininess[] = {100, 30};
 
   const GLfloat perfect_factor = 1.414;
 
@@ -390,36 +390,26 @@ namespace subspace {
   }
 
 
-  void add_lights(){
-    /*
-      light_position0[0] = coordinate_max_x * perfect_factor;
-      light_position0[1] = coordinate_max_y * perfect_factor;
-      light_position0[2] = coordinate_max_z * perfect_factor;
+  void add_lights(int mode = 0){
 
-      light_position1[0] =  coordinate_min_x * perfect_factor;
-      light_position1[1] =  coordinate_min_y * perfect_factor;
-      light_position1[2] =  coordinate_min_z * perfect_factor;
-    */
+    glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient[mode]);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse[mode]);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular[mode]);
+    glLightfv(GL_LIGHT0, GL_POSITION, light_position0[mode]);
 
-    glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-    glLightfv(GL_LIGHT0, GL_POSITION, light_position0);
 
-    glLightfv(GL_LIGHT1, GL_AMBIENT, light_ambient);
-    glLightfv(GL_LIGHT1, GL_DIFFUSE, light_diffuse);
-    glLightfv(GL_LIGHT1, GL_SPECULAR, light_specular);
-    glLightfv(GL_LIGHT1, GL_POSITION, light_position1);
+    glLightfv(GL_LIGHT1, GL_AMBIENT, light_ambient[mode]);
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, light_diffuse[mode]);
+    glLightfv(GL_LIGHT1, GL_SPECULAR, light_specular[mode]);
+    glLightfv(GL_LIGHT1, GL_POSITION, light_position1[mode]);
 
-    glEnable(GL_LIGHT0);
-    glEnable(GL_LIGHT1);
 
-    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, mat_emission);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient[mode]);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse[mode]);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular[mode]);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, mat_emission[mode]);
 
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mat_shininess);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, &mat_shininess[mode]);
 
 
   }
@@ -541,14 +531,14 @@ namespace subspace {
     else if(key == 'e') {
       if(currentScene->render_mode==0) {
 	currentScene->render_mode = 1;
-	glutPostRedisplay();
 	glClearColor(1.0,1.0,1.0,0.0);
+	glutPostRedisplay();
       }
       else
       {
 	currentScene->render_mode = 0;
-	glutPostRedisplay();
 	glClearColor(0.0,0.0,0.0,0.0);
+	glutPostRedisplay();
       }
     }
     else if (key == 'l') {//record animate
@@ -1095,7 +1085,10 @@ namespace subspace {
 
 
 
-    add_lights();
+    add_lights(0);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_LIGHT1);
+
     camera_displace = 3 * object->size;
     glEnableClientState(GL_COLOR_ARRAY);
     /*
