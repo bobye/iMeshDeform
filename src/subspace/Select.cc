@@ -208,6 +208,7 @@ namespace subspace {
 
     std::ofstream fid("default.id");
     for (int i=0; i<vn; ++i) fid << rigids[i] << std::endl;
+    for (int i=vn; i<pn; ++i) fid << 0 << std::endl;
     fid.close();
   }
 

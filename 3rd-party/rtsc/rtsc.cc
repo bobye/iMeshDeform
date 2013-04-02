@@ -282,6 +282,7 @@ void make_light_textures(GLuint *texture_contexts)
 	for (int i = 0; i < texsize; i++) {
 		float z = float(i + 1 - texsize/2) / (0.5f * texsize);
 		texture[i] = max(0, int(255 * z));
+		//texture[i] = (int) fabs(255 * z);
 	}
 	glTexImage2D(GL_TEXTURE_2D, 0, 1, texsize, 1, 0,
 		     GL_LUMINANCE, GL_UNSIGNED_BYTE, texture);
@@ -433,7 +434,7 @@ void draw_base_mesh()
 	glEnable(GL_DEPTH_TEST);
 	glPolygonOffset(5.0f, 30.0f);
 	glEnable(GL_POLYGON_OFFSET_FILL);
-	glEnable(GL_CULL_FACE);
+	//glEnable(GL_CULL_FACE);
 
 	if (use_dlists && !glIsEnabled(GL_COLOR_ARRAY) &&
 	    (use_3dtexc || lighting_style == LIGHTING_NONE)) {
@@ -452,7 +453,7 @@ void draw_base_mesh()
 	// Reset everything
 	glDisableClientState(GL_COLOR_ARRAY);
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	glDisable(GL_CULL_FACE);
+	//glDisable(GL_CULL_FACE);
 	glDisable(GL_TEXTURE_2D);
 	glMatrixMode(GL_TEXTURE);
 	glLoadIdentity();
@@ -464,10 +465,10 @@ void draw_base_mesh()
 	// Draw the mesh edges on top, if requested
 	glLineWidth(1);
 	if (draw_edges) {
-		glPolygonMode(GL_FRONT, GL_LINE);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		glColor3f(0.5, 1.0, 1.0);
 		draw_tstrips();
-		glPolygonMode(GL_FRONT, GL_FILL);
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	}
 
 	// Draw various per-vertex vectors, if requested

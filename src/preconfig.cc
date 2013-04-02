@@ -3,8 +3,8 @@
 
 using namespace subspace;
 
-//typedef TriangleMesh Mesh;
-typedef TetrahedronMesh Mesh;
+typedef TriangleMesh Mesh;
+//typedef TetrahedronMesh Mesh;
     
 
 int main(int argc, char* argv[]) {
@@ -13,7 +13,11 @@ int main(int argc, char* argv[]) {
 
   LB op(argc, argv, mesh);
   op.solve_eigen();
-  std::system("matlab -r \"cluster_data('default', 25);exit;\" -nojvm -nodesktop -nodisplay");
+  char cmd[1024]; int n = 25;
+  n = atoi(argv[2]);
+  sprintf(cmd, "matlab -r \"cluster_data('default', %d);exit;\" -nojvm -nodesktop -nodisplay", n);
+  std::system(cmd);
+
 
   return 0;
 }
