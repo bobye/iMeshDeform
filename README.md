@@ -35,5 +35,4 @@ How to run:
 	cd example/test2
 	./run.sh
 
-	# run pre-configuration
-	./bin/preconfig test2.off
+Demo:
