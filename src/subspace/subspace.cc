@@ -223,12 +223,14 @@ namespace subspace {
     
   }
 
-  void vMesh::load_linear_proxies_vg(std::vector<int> &group_ids) {
+  void vMesh::add_linear_proxies_vg(std::vector<int> &group_ids) {
     assert(vn == group_ids.size());
-    lnn = *std::max_element(group_ids.begin(), group_ids.end()) + 1; lnn3 = 3*lnn;
+    // note lnn, lnn3 are not local variables
+    int lnn = *std::max_element(group_ids.begin(), group_ids.end()) + 1, lnn3 = 3*lnn;
     std::vector<double> count_vertices; count_vertices.resize(lnn);
-    PetscScalar *linear = new PetscScalar[vn3*lnn3]; 
-    std::fill(linear, linear+vn3*lnn3, 0);
+    const int currentsize = linear_proxies.size();
+    linear_proxies.resize(currentsize + vn3*lnn3, 0);
+    PetscScalar *linear = & linear_proxies[currentsize];
 
     for (int i=0, j=0; i<vn; ++i, j+=3) {
       linear[3*group_ids[i] + j*lnn3] = 1.; // row major
@@ -241,7 +243,27 @@ namespace subspace {
       linear[3*group_ids[i] +1 + (j+1)*lnn3] /= count_vertices[group_ids[i]]; 
       linear[3*group_ids[i] +2 + (j+2)*lnn3] /= count_vertices[group_ids[i]]; 
     }
-    for (int i=0; i<vn3*lnn3; ++i) linear_proxies.push_back(linear[i]);
+    
+  }
+
+  void vMesh::add_linear_proxies_ss(std::vector<int> &labeled_vtx) {    
+    
+    for (int i=0;i<vn; ++i)
+      if (labeled_vtx[i] != 0) {
+	int currentsize = linear_proxies.size();
+	linear_proxies.resize(currentsize + 3*vn3, 0);
+	PetscScalar *linear = & linear_proxies[currentsize];
+	linear[3*i] = linear[vn3 + 3*i+1] = linear[2*vn3 + 3*i+2] = 1;
+      }
+  }
+
+  void vMesh::add_linear_proxies_custom(std::vector<double> & vector) {
+    const int currentsize = linear_proxies.size();
+    linear_proxies.resize(currentsize + 3*vn3, 0);
+    PetscScalar * linear = & linear_proxies[currentsize];
+    for (int i=0; i<vn; ++i) {
+      linear[3*i] = linear[vn3+3*i+1] = linear[2*vn3+3*i+2] = vector[i];
+    }
   }
 
   void vMesh::load_rotational_proxies(std::vector<int> &group_ids) {
@@ -265,6 +287,8 @@ namespace subspace {
 
   void vMesh::load_controls(std::vector<int> &group_ids) {
     assert(vn == group_ids.size());
+    // lnn, lnn3 here are global variables.
+    lnn3 = linear_proxies.size()/vn3; lnn = lnn3/3;
     clock_start("Preparing control layer");
 
     int M = 0;

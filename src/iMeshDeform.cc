@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
   // initialize subspace solver w.r.t mesh
   Subspace ss_solver(argc,argv, mesh);
   // load proxies and controls.
-  mesh->load_linear_proxies_vg(group_ids1);
+  mesh->add_linear_proxies_vg(group_ids1);
   mesh->load_rotational_proxies(group_ids2);
   mesh->load_controls(group_ids3);
 

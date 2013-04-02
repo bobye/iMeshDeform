@@ -31,14 +31,21 @@ namespace subspace {
     float *vertices_ele;
     
 
-    std::vector<double> linear_proxies;
+
+    // proxy I/O
+
     // load linear_proxies via vertices group
-    void load_linear_proxies_vg(std::vector<int> &);
+    std::vector<double> linear_proxies;
+    void add_linear_proxies_vg(std::vector<int> &); // vg: vertices group
+    void add_linear_proxies_ss(std::vector<int> &); // ss: sparse sampling
+    void add_linear_proxies_custom(std::vector<double> &);// customed linear proxies
 
     //rotational proxies, clusters of vertices
     std::vector<int> rotational_proxies;
     void load_rotational_proxies(std::vector<int> &);
+
     // virtual functions:
+    // load affine controller if applicable, finalize input
     std::vector<int> is_rigid;
     virtual void load_controls(std::vector<int> &);
 

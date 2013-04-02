@@ -544,7 +544,9 @@ namespace subspace {
       }
     }
     else if (key == 'l') {//record animate
-
+      /********************************************/
+      // lots bugs for this key
+      /********************************************/
       if(record_switch==0) {
 	//currentScene->animator = new Animator();
 	record_switch = 1;
@@ -555,9 +557,6 @@ namespace subspace {
 	}
 	  
 	currentScene->handsel->record();
-	//currentScene->set_animator(&record_animate);
-	//glutIdleFunc(animate);
-	//glutPostRedisplay();
       }
       else {
 	char text[256];
@@ -589,6 +588,9 @@ namespace subspace {
       }
     }
     else if ( key == 'L') {//play animate
+      /********************************************/
+      // Still remain more testing
+      /********************************************/
       printf("Please Enter Animator File Name: ");
       char filepath[256];
       scanf("%s",filepath);

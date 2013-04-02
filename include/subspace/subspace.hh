@@ -37,11 +37,8 @@ namespace subspace {
 
     
     // offline routines
-    // vg: vertices group
-    void load_linear_proxies_vg(std::vector<int> &);
-    void load_rotational_proxies(std::vector<int> &);
-    void load_controls(std::vector<int> &);
 
+    // solver
     void solve();//solve variational subspace
 
 
