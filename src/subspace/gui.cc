@@ -330,20 +330,20 @@ namespace subspace {
       glEnable(GL_COLOR_MATERIAL);
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glPushMatrix();
-      glColorPointer(3, GL_UNSIGNED_BYTE, 4, currentScene->object->color_base);
+      glColorPointer(3, GL_UNSIGNED_BYTE, 4, currentScene->object->color_render);
       currentScene->object->draw();		    
       
       glDisable(GL_DEPTH_TEST);
       glEnable(GL_COLOR_MATERIAL);
 
 
-      currentScene->handsel->draw(win_world_radio);
+      //currentScene->handsel->draw(win_world_radio);
 
       glPushMatrix();
       
       glColor3f(.5, .5, 0.);
       glTranslatef(currentScene->cursor[0], currentScene->cursor[1], currentScene->cursor[2]);
-      glutSolidSphere(5*win_world_radio , 20, 20);
+      //glutSolidSphere(5*win_world_radio , 20, 20);
       glPopMatrix();    
       glEnable(GL_DEPTH_TEST);
 
@@ -403,6 +403,8 @@ namespace subspace {
     glLightfv(GL_LIGHT1, GL_SPECULAR, light_specular[mode]);
     glLightfv(GL_LIGHT1, GL_POSITION, light_position1[mode]);
 
+    glEnable(GL_LIGHT0);
+    glEnable(GL_LIGHT1);
 
     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient[mode]);
     glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse[mode]);
@@ -1085,9 +1087,7 @@ namespace subspace {
 
 
 
-    add_lights(0);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_LIGHT1);
+    add_lights();// change lights type for different purpose: 0 or 1
 
     camera_displace = 3 * object->size;
     glEnableClientState(GL_COLOR_ARRAY);
@@ -1187,7 +1187,7 @@ namespace subspace {
     object->xf.write(filename + ".obj.xf"); xf_rtsc = xf_rtsc * object->xf;
 
     std::string mesh_export = filename + ".obj.off";
-    object->mesh->write_deformed_surface_mesh(mesh_export.c_str());
+    object->mesh->write_deformed_surface_mesh(mesh_export.c_str(), object->color_render);
     
     xf_rtsc[14] -= camera_displace;
     xf_rtsc.write(filename + ".obj.rtsc.xf"); 

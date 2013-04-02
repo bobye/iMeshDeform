@@ -48,7 +48,9 @@ namespace subspace {
     virtual void recompute_normals() = 0;
     // write mesh to files
     virtual void write(const char*) = 0;
-    virtual void write_deformed_surface_mesh(const char*) = 0;
+
+    //    virtual void write_deformed_surface_mesh(const char*) = 0;
+    virtual void write_deformed_surface_mesh(const char*, const unsigned char * colors =NULL) = 0;
 
     // compute Laplacian-Beltrami operator
     virtual void compute_LB_operator() = 0;
@@ -92,12 +94,15 @@ namespace subspace {
     void recompute_normals() { recompute_normals_tightpacked(); }
 
     void write(const char* filename) {((Mesh2d*) this)->write(filename);}
-    void write_deformed_surface_mesh(const char* filename) {
+    void write_deformed_surface_mesh(const char* filename, const unsigned char * colors) {
       FILE * f = fopen(filename, "wb");
-      fprintf(f,"OFF\n");
+      if (colors) fprintf(f,"C"); fprintf(f,"OFF\n");
       fprintf(f,"%d\t%d\t0\n", numberofvertices, (int) faces.size());
-      for (int i=0; i<numberofvertices; ++i) 
-	fprintf(f,"%f %f %f\n", vertices_tpd[3*i], vertices_tpd[3*i+1], vertices_tpd[3*i+2]);
+      for (int i=0; i<numberofvertices; ++i)  {	
+	fprintf(f,"%f %f %f", vertices_tpd[3*i], vertices_tpd[3*i+1], vertices_tpd[3*i+2]);
+	if (colors) 
+	  fprintf(f, " %f %f %f %f\n", colors[4*i]/255., colors[4*i+1]/255., colors[4*i+2]/255., colors[4*i+3]/255.);
+      }
       for (int i=0; i<faces.size(); ++i)
 	fprintf(f,"3 %d %d %d\n", faces[i][0], faces[i][1], faces[i][2]);
       fclose(f);
@@ -134,12 +139,15 @@ namespace subspace {
     void draw();
     void recompute_normals() { surface.recompute_normals_tightpacked();}
     void write(const char* filename) { ((Mesh3d*) this)->write(filename);};
-    void write_deformed_surface_mesh(const char* filename) {
+    void write_deformed_surface_mesh(const char* filename, const unsigned char * colors) {
       FILE * f = fopen(filename, "wb");
-      fprintf(f,"OFF\n");
+      if(colors) fprintf(f,"C"); fprintf(f,"OFF\n");
       fprintf(f,"%d\t%d\t0\n", numberofvertices, (int) surface.faces.size());
-      for (int i=0; i<numberofvertices; ++i) 
-	fprintf(f,"%f %f %f\n", vertices_tpd[3*i], vertices_tpd[3*i+1], vertices_tpd[3*i+2]);
+      for (int i=0; i<numberofvertices; ++i) {
+	fprintf(f,"%f %f %f", vertices_tpd[3*i], vertices_tpd[3*i+1], vertices_tpd[3*i+2]);
+	if (colors) 
+	  fprintf(f, " %f %f %f %f\n", colors[4*i]/255., colors[4*i+1]/255., colors[4*i+2]/255., colors[4*i+3]/255.);
+      }
       for (int i=0; i<surface.faces.size(); ++i)
 	fprintf(f,"3 %d %d %d\n", surface.faces[i][0], surface.faces[i][1], surface.faces[i][2]);
       fclose(f);

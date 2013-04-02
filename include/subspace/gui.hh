@@ -57,10 +57,10 @@ namespace subspace {
     vMesh *mesh;    
     // bounding box
     GLfloat bbox[6], size;
-    GLubyte *color_base;
+    GLubyte *color_base, *color_render;
     Object(TriangleMesh*);
     Object(TetrahedronMesh*);
-
+    ~Object();
     // render!
     //void register_mesh();
     void back_draw();
