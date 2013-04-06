@@ -434,7 +434,7 @@ void draw_base_mesh()
 	glEnable(GL_DEPTH_TEST);
 	glPolygonOffset(5.0f, 30.0f);
 	glEnable(GL_POLYGON_OFFSET_FILL);
-	//glEnable(GL_CULL_FACE);
+	glEnable(GL_CULL_FACE);
 
 	if (use_dlists && !glIsEnabled(GL_COLOR_ARRAY) &&
 	    (use_3dtexc || lighting_style == LIGHTING_NONE)) {
@@ -453,7 +453,7 @@ void draw_base_mesh()
 	// Reset everything
 	glDisableClientState(GL_COLOR_ARRAY);
 	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	//glDisable(GL_CULL_FACE);
+	glDisable(GL_CULL_FACE);
 	glDisable(GL_TEXTURE_2D);
 	glMatrixMode(GL_TEXTURE);
 	glLoadIdentity();
