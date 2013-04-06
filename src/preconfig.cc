@@ -3,13 +3,25 @@
 
 using namespace subspace;
 
+
+//#define USE_TRIANGLE
+#define USE_TETRAHEDRON
+
+#ifdef USE_TRIANGLE
 typedef TriangleMesh Mesh;
-//typedef TetrahedronMesh Mesh;
+#elif defined USE_TETRAHEDRON
+typedef TetrahedronMesh Mesh;    
+#endif
+
     
 
 int main(int argc, char* argv[]) {
   Mesh *mesh = (Mesh *) Mesh::read(argv[1]);
   if (!mesh) exit(1);
+
+#ifdef USE_TETRAHEDRON
+  mesh->write("default.node");// write re-rank nodes;
+#endif
 
   LB op(argc, argv, mesh);
   op.solve_eigen();
