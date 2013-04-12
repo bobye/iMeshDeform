@@ -119,8 +119,11 @@ namespace subspace {
   static Mat  VS;//sparse matrix to LU: dimension 7*vn + 3*ln
   static Mat  RE;//linearization artifacts regulazier
 
-#define COEFF_REG_L2      (0.001) // dumping for nonrigid distortion, 2d
-#define COEFF_REG_L3      (0.1)  // dumping for nonrigid distortion, 3d
+#define COEFF_REG_L2      (0.01) // dumping for nonrigid distortion, 2d
+#define COEFF_REG_M2      (.8)    // dumping for moving frame differences, 2d
+#define COEFF_REG_L3      (1.)  // dumping for nonrigid distortion, 3d
+#define COEFF_REG_M3      (.8)   // dumping for moving frame differences, 3d
+
 #define COEFF_REG_RADIO   (0.5)   // radio: normal / (overall + normal)
 #define EPSILON           (1E-5)  // N/A
 #define NUM_OF_ITERATION  (8)     // number of iterations of reduced model per frame
@@ -308,7 +311,7 @@ namespace subspace {
     for (int i=0; i<en4; ++i) nnz[vn3 + i] = 1;    
     for (int i=0; i<lnn3; ++i)  nnz[vn3 + en4 + i] = 1;
 
-    ln3 = lnn3 + 9*lcn;
+    ln3 = lnn3 + 9*lcn; ln = ln3/3;
 
     MatCreateSeqAIJ(PETSC_COMM_SELF, N, cn + en4 + ln3, 0, nnz, &Ctrl2Geom); 
     delete [] nnz;
@@ -411,7 +414,7 @@ namespace subspace {
       MULTIPLY(vs, 2, weight)
       for (int j=0; j<3; ++j)
 	VecSetValues(VS_R[rk+rn*(i+3*j)], 2, idv[j], vs, ADD_VALUES);
-      }
+    }
 
     PetscScalar vs[4];
     for (int i=0; i<3; ++i) {
@@ -435,15 +438,60 @@ namespace subspace {
     return ierr;   
   }
 
+  inline PetscErrorCode mat_edgemf_assembly_VS(const PetscInt &v0, const PetscInt &v1, const PetscInt &r0, const PetscInt &r1, const PetscScalar &weight) {
+    PetscErrorCode ierr;
+    //if (r0 == r1) return ierr;// Nothing to do
+    const PetscInt idq[4][2] = {{vn3 + 4*v0,   vn3 + 4*v1}, 
+			   {vn3 + 4*v0+1, vn3 + 4*v1+1}, 
+			   {vn3 + 4*v0+2, vn3 + 4*v1+2}, 
+			   {vn3 + 4*v0+3, vn3 + 4*v1+3}};
+
+    PetscScalar vqs[4] = {1,-1,-1,1};
+    MULTIPLY(vqs, 4, 4*weight)
+    ierr = MatSetValues(VS, 2, idq[0], 2, idq[0], vqs, ADD_VALUES); CHKERRQ(ierr);
+    MULTIPLY(vqs, 4, .75)
+    ierr = MatSetValues(VS, 2, idq[1], 2, idq[1], vqs, ADD_VALUES); CHKERRQ(ierr);
+    ierr = MatSetValues(VS, 2, idq[2], 2, idq[2], vqs, ADD_VALUES); CHKERRQ(ierr);
+    ierr = MatSetValues(VS, 2, idq[3], 2, idq[3], vqs, ADD_VALUES); CHKERRQ(ierr);
+
+    if (r0 != r1) {
+      PetscScalar vqrs[4] = {1, -1, -1, 1};
+      MULTIPLY(vqrs, 4, weight);
+      VecSetValues(VS_R[r0       ],     2, idq[0], vqrs+2, ADD_VALUES);
+      VecSetValues(VS_R[r0+rn*(1)], 2, idq[3], vqrs,   ADD_VALUES);
+      VecSetValues(VS_R[r0+rn*(2)], 2, idq[2], vqrs+2, ADD_VALUES);
+      VecSetValues(VS_R[r0+rn*(3)], 2, idq[3], vqrs+2, ADD_VALUES);
+      VecSetValues(VS_R[r0+rn*(4)], 2, idq[0], vqrs+2, ADD_VALUES);
+      VecSetValues(VS_R[r0+rn*(5)], 2, idq[1], vqrs,   ADD_VALUES);
+      VecSetValues(VS_R[r0+rn*(6)], 2, idq[2], vqrs,   ADD_VALUES);
+      VecSetValues(VS_R[r0+rn*(7)], 2, idq[1], vqrs+2, ADD_VALUES);
+      VecSetValues(VS_R[r0+rn*(8)], 2, idq[0], vqrs+2, ADD_VALUES);
+
+      VecSetValues(VS_R[r1       ],     2, idq[0], vqrs,   ADD_VALUES);
+      VecSetValues(VS_R[r1+rn*(1)], 2, idq[3], vqrs+2, ADD_VALUES);
+      VecSetValues(VS_R[r1+rn*(2)], 2, idq[2], vqrs,   ADD_VALUES);
+      VecSetValues(VS_R[r1+rn*(3)], 2, idq[3], vqrs,   ADD_VALUES);
+      VecSetValues(VS_R[r1+rn*(4)], 2, idq[0], vqrs,   ADD_VALUES);
+      VecSetValues(VS_R[r1+rn*(5)], 2, idq[1], vqrs+2, ADD_VALUES);
+      VecSetValues(VS_R[r1+rn*(6)], 2, idq[2], vqrs+2, ADD_VALUES);
+      VecSetValues(VS_R[r1+rn*(7)], 2, idq[1], vqrs,   ADD_VALUES);
+      VecSetValues(VS_R[r1+rn*(8)], 2, idq[0], vqrs,   ADD_VALUES);
+    }
+    
+    return ierr;
+  }
+
   void TriangleMesh::compute_ARAP_approx() {
     for (int i = 0; i<vn; ++i) {
-      //trimesh::vec &normal = mesh->normals[i], &pdir1 = mesh->pdir1[i], &pdir2 = mesh->pdir2[2];
+      PetscScalar area = pointareas[i];
+      if (isinf(area) || area < 1E-3 * avgarea) area = 1E-3 * avgarea;
+
+      /* Revised ARAP energy
+       * Please refer our paper for detailed formulation
+       */
 
       std::vector<int> &nfaces = adjacentfaces[i];
       int fn = nfaces.size();
-
-      PetscScalar area = pointareas[i];
-      if (isinf(area) || area < 1E-3 * avgarea) area = 1E-3 * avgarea;
 
       for (int j= 0; j<fn; ++j) {
 	int v0 = faces[nfaces[j]][0], v1 = faces[nfaces[j]][1], v2 = faces[nfaces[j]][2];
@@ -462,6 +510,7 @@ namespace subspace {
 
       }
 
+
       /* Dumping radio: overall distortion vs normal directional distortion
        * which only makes sense to surface meshes 
        */
@@ -479,17 +528,30 @@ namespace subspace {
       MULTIPLY(vqs, 16, COEFF_REG_L2 * area/avgarea)
       MatSetValues(VS, 4, idq, 4, idq, vqs, ADD_VALUES);
 
+      /* Dumping moving frames differential
+       */
+
+      std::vector<int> &nneighbors = neighbors[i];
+      int nn = nneighbors.size();
+      for (int j=0; j<nn; ++j) {
+	int &v0 = i; 
+	int v1 = nneighbors[j];
+	mat_edgemf_assembly_VS(v0, v1, rotational_proxies[v0], rotational_proxies[v1], 
+			       COEFF_REG_M2 * area/avgarea);
+      }
+
     }
 
   }
 
   void TetrahedronMesh::compute_ARAP_approx() {
     for (int i = 0; i<vn; ++i) {
+      PetscScalar area = pointvolumes[i];
+
+      /*  compute approximated ARAP */
       std::vector<int> &nelements = adjacentelements[i];
       int nele = nelements.size();
-      
-      PetscScalar area = pointvolumes[i];
-      
+            
       for (int j=0; j<nele; ++j) {
 	int v0 = elements[nelements[j]][0],
 	  v1 = elements[nelements[j]][1],
@@ -519,11 +581,22 @@ namespace subspace {
 
       }
 
+      /* dumping linearization regulator   */
       const PetscInt idq[4] = {vn3+ 4*i, vn3 + 4*i+1, vn3 + 4*i+2, vn3 + 4*i+3}; 
       PetscScalar vqs[16] = {0};
       vqs[0] = 1;for (int j=1; j<4; ++j) vqs[5*j] = 2/3.;
       MULTIPLY(vqs, 16, COEFF_REG_L3 * (area/avgarea))
       MatSetValues(VS, 4, idq, 4, idq, vqs, ADD_VALUES);
+
+      /* dumping moving frame differential  */
+      std::vector<int> &nneighbors = neighbors[i];
+      int nn = nneighbors.size();
+      for (int j=0; j<nn; ++j) {
+	int &v0 = i; 
+	int v1 = nneighbors[j];
+	mat_edgemf_assembly_VS(v0, v1, rotational_proxies[v0], rotational_proxies[v1], 
+			       COEFF_REG_M3 * area/avgarea);
+      }
 
     }
   }
@@ -533,7 +606,7 @@ namespace subspace {
     int *nnz = new int[N];
 
     for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (get_numneighbors(i/3)+1) + 3*lnn;
-    for (int i=0; i<en4; ++i)  nnz[vn3 + i] = 4;// + mesh->neighbors[i/4].size();
+    for (int i=0; i<en4; ++i)  nnz[vn3 + i] = 4 + get_numneighbors(i/4);
     for (int i=0; i<lnn3; ++i)  nnz[vn3+en4 + i] = 1;
 
     MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 0, nnz, &VS); delete [] nnz;
@@ -781,7 +854,7 @@ namespace subspace {
     PetscFinalize();
 
     //clock_end();
-    std::cout << "  linear Proxies: " << ln << "; rotational Proxies: " << rn << std::endl;
+    std::cout << "  Linear Proxies: " << ln << "; Rotational Proxies: " << rn << std::endl;
 
   }
 
