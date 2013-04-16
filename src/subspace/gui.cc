@@ -270,7 +270,6 @@ namespace subspace {
 	glPushMatrix();//push i-th matrix
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glColorPointer(3, GL_UNSIGNED_BYTE, 4, ((VertSelect*) currentScene->context)->color_solid);
-	glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT);
 	currentScene->object->draw();
 	glPopMatrix();//pop i-th matrix
 	glColorPointer(3, GL_UNSIGNED_BYTE, 4, ((VertSelect*) currentScene->context)->color_wire);
@@ -286,7 +285,6 @@ namespace subspace {
 	  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	  glColorPointer(3, GL_UNSIGNED_BYTE, 4, currentScene->object->color_base);
 	}
-      glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT);
       currentScene->object->draw();		    
       glDisable(GL_DEPTH_TEST);
       glEnable(GL_COLOR_MATERIAL);
@@ -333,7 +331,6 @@ namespace subspace {
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glPushMatrix();
       glColorPointer(3, GL_UNSIGNED_BYTE, 4, currentScene->object->color_render);
-      glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE);
       currentScene->object->draw();		    
       
       glDisable(GL_DEPTH_TEST);
