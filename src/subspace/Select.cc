@@ -275,7 +275,15 @@ namespace subspace {
   }
   void HandlerSelect::restore_buffer() {
     constraint_points = constraint_points_buffer;
-    if (ss_solver) ss_solver->update(constraint_points, true);
+    if (ss_solver) {
+      ss_solver->update(constraint_points, true);
+      glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
+      glBufferData(GL_ARRAY_BUFFER, 
+		   3*vn*sizeof(float), 
+		   object->mesh->vertices_tpd,
+		   GL_DYNAMIC_DRAW);    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
   }
 
   void HandlerSelect::update(bool inf) {
@@ -283,8 +291,16 @@ namespace subspace {
     for (int i = 0; i < hn; ++i)
       if(selected[i])
 	constraint_points[i] = xf * constraint_points_buffer[i];      
-    
-    if (ss_solver) ss_solver->update(constraint_points, inf);
+
+    if (ss_solver) {
+      ss_solver->update(constraint_points, inf);
+      glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
+      glBufferData(GL_ARRAY_BUFFER, 
+		   3*vn*sizeof(float), 
+		   object->mesh->vertices_tpd,
+		   GL_STREAM_DRAW);    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
   }
 
   void HandlerSelect::draw(double win_world_radio) {

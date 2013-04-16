@@ -78,13 +78,22 @@ namespace subspace{
   }
     
   int Animator::run(Scene* currentScene) {
+    Object* &object = currentScene->object;
 
     if(!constraint_points_list.empty()){
       //set constraints' positions
       bool inf = false;
       if(currentframeid==0||currentframeid==numberofframes-1)
 	inf = true;
-      if (currentScene->ss_solver) currentScene->ss_solver->update(constraint_points_list[currentframeid], inf);
+      if (currentScene->ss_solver) {
+	currentScene->ss_solver->update(constraint_points_list[currentframeid], inf);
+	glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
+	glBufferData(GL_ARRAY_BUFFER, 
+		     3*object->mesh->numberofvertices*sizeof(float), 
+		     object->mesh->vertices_tpd,
+		     GL_STREAM_DRAW);    
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+      }
     }
     if(!projectionmatrixes.empty()) {
       glMatrixMode(GL_PROJECTION);

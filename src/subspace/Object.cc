@@ -11,10 +11,20 @@ namespace subspace {
     center = pmesh->bsphere.center;
 
     xf = XForm::identity();
+    int vn = pmesh->numberofvertices;
+
+
+    glGenBuffers(1, &vboId_vertices);
+    glBindBuffer(GL_ARRAY_BUFFER, vboId_vertices);// bind VBO in order to use for vertices
+    glBufferData(GL_ARRAY_BUFFER, 3*vn*sizeof(float), pmesh->vertices_tpd, GL_DYNAMIC_DRAW);
+
+    //glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
+    glVertexPointer(3, GL_FLOAT, 0, 0); // last param is offset, not ptr
+    glBindBuffer(GL_ARRAY_BUFFER, 0); // bind with 0, so, switch back to normal pointer operations
 
     glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
-    glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
-    int vn = pmesh->numberofvertices;
+
+
     color_base = new GLubyte[4*vn];
     color_render = new GLubyte[4*vn];
     
@@ -62,7 +72,7 @@ namespace subspace {
     delete color_render;
   }
 
-  void draw_tstrips(Mesh2d *mesh) {
+  void draw_tstrips(const Mesh2d *mesh) {
     static bool use_glArrayElement = false;
     static bool tested_renderer = false;
     if (!tested_renderer) {
@@ -89,7 +99,14 @@ namespace subspace {
     }
   }
 
-  //  void draw_tstrips(const Mesh *themesh)
+  void draw_simple(const Mesh2d *mesh) {
+    glDrawElements(GL_TRIANGLES, 
+		   3*mesh->faces.size(), 
+		   GL_UNSIGNED_INT, 
+		   mesh->face_indices_tightpacked);
+  }
+
+
   void TriangleMesh::draw()
   {
     draw_tstrips(this);
@@ -105,18 +122,15 @@ namespace subspace {
     glEnable(GL_COLOR_MATERIAL);
     glColor4f(0.3, 0.5, 0.6, 0.75);
 
-    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT);
-
     //glCullFace(GL_BACK);
 
     //glDepthMask(GL_FALSE);
     //glEnable(GL_BLEND);
 
     //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  
+    
     glMultMatrixf(xf);	  
-    //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
-    //draw_tstrips(mesh);
+
     mesh->draw();
     //glDisable(GL_BLEND);
     //glDepthMask(GL_TRUE);

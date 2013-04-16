@@ -3,12 +3,15 @@
 
 #include <vector>
 #include "subspace.hh"
+
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
 #include <GL/glut.h>
 
 namespace subspace {
   class Scene;
   class Animator {
-  public:
+  public:    
     std::vector< std::vector<float> > constraints; 
     std::vector< ConstraintPointList > constraint_points_list;
     std::vector< XForm > projectionmatrixes;
@@ -55,6 +58,7 @@ namespace subspace {
   public:
     // mesh data
     vMesh *mesh;    
+    GLuint vboId_vertices;
     // bounding box
     GLfloat bbox[6], size;
     GLubyte *color_base, *color_render;
