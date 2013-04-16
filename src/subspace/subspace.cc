@@ -665,7 +665,6 @@ namespace subspace {
     /**************************************************/
     // assembly matrix
     clock_start("Assembly Physical layer");
-    allocate();
     //assembly();
     mesh->compute_subspace_assembly();
     clock_end();
@@ -700,7 +699,7 @@ namespace subspace {
 
     MatAXPY(L, 1, Ltmp, DIFFERENT_NONZERO_PATTERN);
     
-    MatDestroy(&Ltmp); MatDestroy(&Ltmp2);    
+    MatDestroy(&Ltmp); MatDestroy(&Ltmp2); MatDestroy(&VS);  
 
     KSP ksp;
     PC direct_solver;
@@ -749,11 +748,13 @@ namespace subspace {
     KSPDestroy(&ksp);
 
     clock_end();
+
     /**************************************************/
     // copy subspace solution data to global array
     clock_start("Preparing display layer");
+    allocate();// allocate mem for computing VRDM as follows:   
 
-    Vec tmp; MatGetVecs(VS, &tmp, PETSC_NULL);
+    Vec tmp; MatGetVecs(Ctrl2Geom, PETSC_NULL, &tmp);
 
     for (int i=0; i<ln3; ++i) {
       PetscScalar *buffer;

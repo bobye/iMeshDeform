@@ -320,6 +320,12 @@ namespace subspace {
   void HandlerSelect::set_solver(Subspace * ss){    
     ss_solver = ss;
     ss->prepare(constraints, constraint_points);
+    glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
+    glBufferData(GL_ARRAY_BUFFER, 
+		 3*vn*sizeof(float), 
+		 object->mesh->vertices_tpd,
+		 GL_DYNAMIC_DRAW);    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
   void HandlerSelect::unset_solver() {
     ss_solver->terminate();

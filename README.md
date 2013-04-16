@@ -13,7 +13,7 @@ Libraries:
  - OpenGL + GLUT
  - PETSc with external sparse direct solver, e.g. mumps/umfpack
  - SLEPc
- - Intel MKL [doc](http://software.intel.com/en-us/articles/intel-math-kernel-library-documentation)
+ - [Intel MKL](http://software.intel.com/en-us/articles/intel-math-kernel-library-documentation)
  - [trimesh2++](https://github.com/bobye/trimesh2plus)
 
 Env variables:
