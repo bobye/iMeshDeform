@@ -29,31 +29,7 @@
 #define _SS_MALLOC_INT(x)       (int *) mkl_malloc( (x) *sizeof(int), 16)
 #define _SS_FREE(x)         mkl_free(x)
 
-// Timing, count in seconds.
-struct timespec start, end;
-#define BILLION  1000000000L
-  void clock_start(std::string description) {
-    std::cout << description <<" ... " << std::flush; 
-    clock_gettime(CLOCK_MONOTONIC, &start);
-  }
-  void clock_end() {
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    printf("\t[done] %.3f seconds\n", (( end.tv_sec - start.tv_sec )+ (double)( end.tv_nsec - start.tv_nsec ) / (double)BILLION ));
-  }
-
-// Timing, count in nano seconds.
-#ifdef _SS_SHOW_DEBUG
-  struct timespec nstart, nend;
-  inline void nclock_start() {clock_gettime(CLOCK_MONOTONIC, &nstart);}
-  inline void nclock_end() {clock_gettime(CLOCK_MONOTONIC, &nend);     
-    printf("\t%ld nanosec", ((long) ( nend.tv_sec - nstart.tv_sec ) * BILLION + ( nend.tv_nsec - nstart.tv_nsec ) ));}
-#endif 
-
-#ifdef _SS_SHOW_DEBUG
-#define _SS_PROFILE(x) nclock_start(); x nclock_end();
-#else
-#define _SS_PROFILE(x) x
-#endif
+#include "subspace/utility.hh"
 
 /* Computing the Singular Value Decomposition of 3x3 matrices 
  * with minimal branching and elementary floating point operations 
@@ -63,7 +39,7 @@ struct timespec start, end;
 #define NUM_OF_SVD_THREAD 4 // parallel 3x3 svd
 #include "fastsvd.hh"
 
-#if 0
+#if 0 //not used 
 inline void apply_rot(float * const y, const _SS_SCALAR *x, const _SS_SCALAR *M, const char Order) {// M in row major
   if (Order == 'R') {
     y[0] = M[0]*x[0] + M[1]*x[1] + M[2]*x[2];

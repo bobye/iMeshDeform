@@ -1,5 +1,6 @@
 #include "subspace/gui.hh"
-
+//#define _SS_SHOW_DEBUG
+#include "subspace/utility.hh"
 namespace subspace {  
   VertSelect::VertSelect(Object * obj) {
     object = obj; 
@@ -293,13 +294,15 @@ namespace subspace {
 	constraint_points[i] = xf * constraint_points_buffer[i];      
 
     if (ss_solver) {
-      ss_solver->update(constraint_points, inf);
+      _SS_PROFILE(ss_solver->update(constraint_points, inf);)
+      _SS_PROFILE(	
       glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
       glBufferData(GL_ARRAY_BUFFER, 
 		   3*vn*sizeof(float), 
 		   object->mesh->vertices_tpd,
 		   GL_STREAM_DRAW);    
       glBindBuffer(GL_ARRAY_BUFFER, 0);
+      )
     }
   }
 
