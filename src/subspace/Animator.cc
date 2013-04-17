@@ -87,12 +87,7 @@ namespace subspace{
 	inf = true;
       if (currentScene->ss_solver) {
 	currentScene->ss_solver->update(constraint_points_list[currentframeid], inf);
-	glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
-	glBufferData(GL_ARRAY_BUFFER, 
-		     3*object->mesh->numberofvertices*sizeof(float), 
-		     object->mesh->vertices_tpd,
-		     GL_STREAM_DRAW);    
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	object->is_vbo_updated = false;
       }
     }
     if(!projectionmatrixes.empty()) {

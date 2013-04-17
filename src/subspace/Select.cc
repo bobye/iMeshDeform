@@ -270,7 +270,7 @@ namespace subspace {
     
   }
   */
-
+  
   void HandlerSelect::set_buffer() {
     constraint_points_buffer = constraint_points;
   }
@@ -278,12 +278,7 @@ namespace subspace {
     constraint_points = constraint_points_buffer;
     if (ss_solver) {
       ss_solver->update(constraint_points, true);
-      glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
-      glBufferData(GL_ARRAY_BUFFER, 
-		   3*vn*sizeof(float), 
-		   object->mesh->vertices_tpd,
-		   GL_DYNAMIC_DRAW);    
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      object->is_vbo_updated = false;
     }
   }
 
@@ -295,14 +290,7 @@ namespace subspace {
 
     if (ss_solver) {
       _SS_PROFILE(ss_solver->update(constraint_points, inf);)
-      _SS_PROFILE(	
-      glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
-      glBufferData(GL_ARRAY_BUFFER, 
-		   3*vn*sizeof(float), 
-		   object->mesh->vertices_tpd,
-		   GL_STREAM_DRAW);    
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      )
+      object->is_vbo_updated = false;
     }
   }
 
@@ -323,12 +311,7 @@ namespace subspace {
   void HandlerSelect::set_solver(Subspace * ss){    
     ss_solver = ss;
     if (ss->prepare(constraints, constraint_points) != _SS_SUCCESS) {ss_solver = NULL; return;}
-    glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
-    glBufferData(GL_ARRAY_BUFFER, 
-		 3*vn*sizeof(float), 
-		 object->mesh->vertices_tpd,
-		 GL_DYNAMIC_DRAW);    
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    object->is_vbo_updated = false;
   }
   void HandlerSelect::unset_solver() {
     ss_solver->terminate();

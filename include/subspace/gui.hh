@@ -59,6 +59,7 @@ namespace subspace {
     // mesh data
     vMesh *mesh;    
     GLuint vboId_vertices;
+    bool is_vbo_updated;
     // bounding box
     GLfloat bbox[6], size;
     GLubyte *color_base, *color_render;
@@ -82,7 +83,7 @@ namespace subspace {
     Object  *object;
     int vn;//    
     bool *selected;
-
+    
     GLubyte *black;
     GLubyte *index;
     GLubyte *color_solid, *color_wire;

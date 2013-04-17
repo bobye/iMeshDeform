@@ -21,6 +21,7 @@ namespace subspace {
     //glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
     glVertexPointer(3, GL_FLOAT, 0, 0); // last param is offset, not ptr
     glBindBuffer(GL_ARRAY_BUFFER, 0); // bind with 0, so, switch back to normal pointer operations
+    is_vbo_updated = true;
 
     glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
 
@@ -132,6 +133,16 @@ namespace subspace {
 	
     glMultMatrixf(xf);	  
 
+    /** update VBO in each draw **/
+    if (!is_vbo_updated) {
+      glBindBuffer(GL_ARRAY_BUFFER, vboId_vertices);
+      glBufferData(GL_ARRAY_BUFFER, 
+		   3*mesh->numberofvertices*sizeof(float), 
+		   mesh->vertices_tpd,
+		   GL_STREAM_DRAW);    
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      is_vbo_updated = true;
+    }
     mesh->draw();
     //glDisable(GL_BLEND);
     //glDepthMask(GL_TRUE);
