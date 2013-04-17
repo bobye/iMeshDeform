@@ -165,7 +165,10 @@ namespace subspace {
     void bind(Object*);
     void bind(Subspace*);
     void view();
-    void set_animator( int (*func)());
+
+    void set_animator( void (*func)());
+    void unset_animator();
+
     void read(std::string ); 
     void write(std::string );
 

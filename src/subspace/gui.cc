@@ -168,8 +168,13 @@ namespace subspace {
   }
 
 
-  void Scene::set_animator( int (*func)()) {
-    animatorfunc = func;
+  void Scene::set_animator( void (*func)()) {
+    //    animatorfunc = func;
+    glutIdleFunc(func);
+  }
+  
+  void Scene::unset_animator() {
+    glutIdleFunc(NULL);
   }
 
   int record_animate() {
@@ -183,18 +188,23 @@ namespace subspace {
     currentScene->handsel->record();
     return 1;
   }
+  /*
   int play_animate() {
     return currentScene->animator->run(currentScene);
   }
-
+  */
   void animate() {
-
-    if ((*currentScene->animatorfunc)() == 0) {
-      glutIdleFunc(NULL);
+    if (currentScene->animator->run(currentScene) == 0) {
+    //if ((*currentScene->animatorfunc)() == 0) {
+      currentScene->unset_animator(); //glutIdleFunc(NULL);
       delete currentScene->animator;
       currentScene->animator = NULL;
     }
     get_window_world_radio();
+    glutPostRedisplay();
+  }
+
+  void animate_dummy() {
     glutPostRedisplay();
   }
 
@@ -483,8 +493,10 @@ namespace subspace {
 
   void Scene::restore_buffer() {
     context->xf = context->xf_buf; //for (int i =0;i < 16; ++i) currentScene->context->xf[i] = currentScene->context->xf_buf[i];
-    if (context == handsel) 
+    if (context == handsel) {
       currentScene->handsel->restore_buffer();
+      unset_animator();
+    }
   }
 
 
@@ -603,8 +615,7 @@ namespace subspace {
 	 
       }
 
-      currentScene->set_animator(&play_animate);
-      glutIdleFunc(animate);
+      currentScene->set_animator(&animate);
       glutPostRedisplay();
     }
     if (key == 9) {// TAB key, switch between selection mode and normal mode
@@ -642,7 +653,6 @@ namespace subspace {
 	currentScene->ss_solver->show_debug();
       }
 #endif
-
 
       if (key == 'g' && !(current_state & ~LOCK_OBJECT_TRANSLATE)) {      
 	if (glutGetModifiers() == GLUT_ACTIVE_ALT) {
@@ -750,6 +760,13 @@ namespace subspace {
 	glutPostRedisplay();
       }
     }
+
+    
+    if(currentScene->context == currentScene->handsel &&
+       (current_state & (LOCK_OBJECT_ROTATE|LOCK_OBJECT_TRANSLATE))) {
+      currentScene->set_animator(&animate_dummy);
+    }
+
   }
 
 
@@ -876,7 +893,7 @@ namespace subspace {
       tx -=origin_x; ty-=origin_y; tz-=origin_z;
       MatxTranslate(currentScene->context->xf, currentScene->context->xf_buf, tx, ty, tz);
 
-      glutPostRedisplay();
+      //glutPostRedisplay();
     }    
     else if (current_state & LOCK_OBJECT_ROTATE) {
       transform_x = x; transform_y = y;
@@ -920,7 +937,7 @@ namespace subspace {
 
       }
       
-      glutPostRedisplay();
+      //glutPostRedisplay();
       
     }
 
@@ -929,6 +946,9 @@ namespace subspace {
       currentScene->handsel->update();
       if(record_switch==1)
 	currentScene->handsel->record();
+    }
+    else {
+      glutPostRedisplay();
     }
 
   }
@@ -989,6 +1009,7 @@ namespace subspace {
 	if(currentScene->context == currentScene->handsel &&
 	   (current_state & (LOCK_OBJECT_ROTATE|LOCK_OBJECT_TRANSLATE))) {
 	  currentScene->handsel->update(true);
+	  currentScene->unset_animator();
 	}
 
 	if (current_state & LOCK_OBJECT_TRANSLATE) { 
