@@ -136,6 +136,12 @@ namespace subspace {
     /** update VBO in each draw **/
     if (!is_vbo_updated) {
       glBindBuffer(GL_ARRAY_BUFFER, vboId_vertices);
+      /** orphaning **/
+      glBufferData(GL_ARRAY_BUFFER,
+		   3*mesh->numberofvertices*sizeof(float),
+		   NULL,
+		   GL_STREAM_DRAW);
+      /** uploading **/
       glBufferData(GL_ARRAY_BUFFER, 
 		   3*mesh->numberofvertices*sizeof(float), 
 		   mesh->vertices_tpd,
