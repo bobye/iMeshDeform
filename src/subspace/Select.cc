@@ -319,7 +319,7 @@ namespace subspace {
 
   void HandlerSelect::set_solver(Subspace * ss){    
     ss_solver = ss;
-    ss->prepare(constraints, constraint_points);
+    if (ss->prepare(constraints, constraint_points) != _SS_SUCCESS) {ss_solver = NULL; return;}
     glBindBuffer(GL_ARRAY_BUFFER, object->vboId_vertices);
     glBufferData(GL_ARRAY_BUFFER, 
 		 3*vn*sizeof(float), 

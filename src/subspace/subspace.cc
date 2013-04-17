@@ -888,10 +888,10 @@ namespace subspace {
     //delete [] vertices_f;
   }
 
-  void Subspace::prepare(std::vector< std::vector<float> > & constraints,
+  _SS_ERROR_CODE Subspace::prepare(std::vector< std::vector<float> > & constraints,
 			 std::vector< Point > & constraint_points) { 
     // precompute LU for dense direct solver, initialize Rot and Lin
-    hn = constraints.size(); if (hn<3) {std::cout << "Need more constraints!\n" << std::endl; return;} hn3 =3*hn;
+    hn = constraints.size(); if (hn<3) {std::cout << "Need more constraints!\n" << std::endl; return _SS_FAILED;} hn3 =3*hn;
 
     //    for (int i=0; i<hn; ++i) constraints[i].reserve(vn);
 
@@ -934,6 +934,7 @@ namespace subspace {
     _SS_FREE(constraints_matrix); _SS_FREE(one);
     update(constraint_points, true);
     clock_end();
+    return _SS_SUCCESS;
   }
 
 

@@ -9,12 +9,18 @@
 /** (experimental) use penalty for moving frame differential **/
 //#define _SS_USE_MFD 
 
-#define _SS_SHOW_DEBUG
+/** use for debug and profile **/
+//#define _SS_SHOW_DEBUG
 
 #include <vector>
 #include "geometry.hh"
 
 #define _SS_PI                       (3.141592653589793238)
+
+/** use for signal transfer **/
+typedef int                          _SS_ERROR_CODE;
+#define _SS_SUCCESS                  (0)
+#define _SS_FAILED                   (1)
 
 namespace subspace {
   
@@ -47,7 +53,7 @@ namespace subspace {
 
     // online routines
     // precompute LU and start updating thread
-    void prepare(std::vector< std::vector<float> > &, std::vector<Point> &);
+    _SS_ERROR_CODE prepare(std::vector< std::vector<float> > &, std::vector<Point> &);
 
     // online solve and update vertices
     void update(std::vector<Point> &, bool );
