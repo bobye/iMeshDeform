@@ -6,6 +6,9 @@
 #define MAX_CFM_STRECH    (1.5)
 #endif 
 
+/** (experimental) use penalty for moving frame differential **/
+//#define _SS_USE_MFD 
+
 #define _SS_SHOW_DEBUG
 
 #include <vector>

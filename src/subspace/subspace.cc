@@ -120,9 +120,12 @@ namespace subspace {
   static Mat  RE;//linearization artifacts regulazier
 
 #define COEFF_REG_L2      (0.01) // dumping for nonrigid distortion, 2d
-#define COEFF_REG_M2      (.8)    // dumping for moving frame differences, 2d
 #define COEFF_REG_L3      (1.)  // dumping for nonrigid distortion, 3d
+
+#ifdef _SS_USE_MFD
+#define COEFF_REG_M2      (.8)    // dumping for moving frame differences, 2d
 #define COEFF_REG_M3      (.8)   // dumping for moving frame differences, 3d
+#endif
 
 #define COEFF_REG_RADIO   (0.5)   // radio: normal / (overall + normal)
 #define EPSILON           (1E-5)  // N/A
@@ -438,6 +441,7 @@ namespace subspace {
     return ierr;   
   }
 
+#ifdef _SS_USE_MFD
   inline PetscErrorCode mat_edgemf_assembly_VS(const PetscInt &v0, const PetscInt &v1, const PetscInt &r0, const PetscInt &r1, const PetscScalar &weight) {
     PetscErrorCode ierr;
     //if (r0 == r1) return ierr;// Nothing to do
@@ -480,6 +484,7 @@ namespace subspace {
     
     return ierr;
   }
+#endif
 
   void TriangleMesh::compute_ARAP_approx() {
     for (int i = 0; i<vn; ++i) {
@@ -528,6 +533,7 @@ namespace subspace {
       MULTIPLY(vqs, 16, COEFF_REG_L2 * area/avgarea)
       MatSetValues(VS, 4, idq, 4, idq, vqs, ADD_VALUES);
 
+#ifdef _SS_USE_MFD
       /* Dumping moving frames differential
        */
 
@@ -539,7 +545,7 @@ namespace subspace {
 	mat_edgemf_assembly_VS(v0, v1, rotational_proxies[v0], rotational_proxies[v1], 
 			       COEFF_REG_M2 * area/avgarea);
       }
-
+#endif
     }
 
   }
@@ -588,6 +594,7 @@ namespace subspace {
       MULTIPLY(vqs, 16, COEFF_REG_L3 * (area/avgarea))
       MatSetValues(VS, 4, idq, 4, idq, vqs, ADD_VALUES);
 
+#ifdef _SS_USE_MFD
       /* dumping moving frame differential  */
       std::vector<int> &nneighbors = neighbors[i];
       int nn = nneighbors.size();
@@ -597,7 +604,7 @@ namespace subspace {
 	mat_edgemf_assembly_VS(v0, v1, rotational_proxies[v0], rotational_proxies[v1], 
 			       COEFF_REG_M3 * area/avgarea);
       }
-
+#endif
     }
   }
 
@@ -606,7 +613,11 @@ namespace subspace {
     int *nnz = new int[N];
 
     for (int i=0; i<vn3; ++i)  nnz[i] = 5 * (get_numneighbors(i/3)+1) + 3*lnn;
+#ifdef _SS_USE_MFD
     for (int i=0; i<en4; ++i)  nnz[vn3 + i] = 4 + get_numneighbors(i/4);
+#else
+    for (int i=0; i<en4; ++i)  nnz[vn3 + i] = 4;
+#endif
     for (int i=0; i<lnn3; ++i)  nnz[vn3+en4 + i] = 1;
 
     MatCreateSeqSBAIJ(PETSC_COMM_SELF, 1, N, N, 0, nnz, &VS); delete [] nnz;
