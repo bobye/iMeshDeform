@@ -908,8 +908,8 @@ namespace subspace {
     Lin  = _SS_MALLOC_SCALAR(nsys);
 
     _SS_FREE(constraints_matrix); _SS_FREE(one);
-    update(constraint_points, true);
     clock_end();
+    update(constraint_points, true);
     return _SS_SUCCESS;
   }
 
@@ -1010,12 +1010,11 @@ namespace subspace {
       //int N=1;
 
       for (int i=0; i<N; ++i) {
-	reduced_linsolve();
-	reduced_rotsolve();
+	_SS_PROFILE(reduced_linsolve();reduced_rotsolve();)
       }
       reduced_linsolve();
 
-      update_mesh(mesh); 
+      _SS_PROFILE(update_mesh(mesh); )
 
       //recompute normals
 
