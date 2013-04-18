@@ -53,12 +53,10 @@ namespace subspace {
     XForm xf, xf_buf;
   };
 
-
   class Object : public Geometry {
   public:
     // mesh data
     vMesh *mesh;    
-    GLuint vboId_vertices;
     bool is_vbo_updated;
     // bounding box
     GLfloat bbox[6], size;

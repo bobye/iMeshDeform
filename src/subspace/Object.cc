@@ -2,6 +2,12 @@
 #include <string.h>
 
 namespace subspace {
+
+  /** Unsynchronized buffer mapping **/
+#define VBO_CHAIN_SIZE     (3)
+  static GLuint vbo[VBO_CHAIN_SIZE], vboId_current;    
+  static GLsync fences[VBO_CHAIN_SIZE] ={0};
+
   Object::Object(TriangleMesh *pmesh) : mesh(pmesh){
 
     //compute bounding box
@@ -13,15 +19,21 @@ namespace subspace {
     xf = XForm::identity();
     int vn = pmesh->numberofvertices;
 
+    // allocate buffer chain
+    glGenBuffers(VBO_CHAIN_SIZE, vbo);
+    for (int i=0; i< VBO_CHAIN_SIZE; ++i) {
+      glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);// bind VBO in order to use for vertices
+      glBufferData(GL_ARRAY_BUFFER, 3*vn*sizeof(float), pmesh->vertices_tpd, GL_STREAM_DRAW);
+    }
 
-    glGenBuffers(1, &vboId_vertices);
-    glBindBuffer(GL_ARRAY_BUFFER, vboId_vertices);// bind VBO in order to use for vertices
-    glBufferData(GL_ARRAY_BUFFER, 3*vn*sizeof(float), pmesh->vertices_tpd, GL_DYNAMIC_DRAW);
-
+    vboId_current = 0;//init
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[vboId_current]);// bind VBO in order to use for vertices
     //glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
     glVertexPointer(3, GL_FLOAT, 0, 0); // last param is offset, not ptr
     glBindBuffer(GL_ARRAY_BUFFER, 0); // bind with 0, so, switch back to normal pointer operations
-    is_vbo_updated = true;
+
+    is_vbo_updated = true; 
+    vboId_current = (vboId_current +1) % VBO_CHAIN_SIZE ;//to write next buffer
 
     glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
 
@@ -119,7 +131,7 @@ namespace subspace {
   }
 
   void Object::draw() {
-
+    
     glEnable(GL_COLOR_MATERIAL);
     glColor4f(0.3, 0.5, 0.6, 0.75);
 
@@ -135,21 +147,57 @@ namespace subspace {
 
     /** update VBO in each draw **/
     if (!is_vbo_updated) {
-      glBindBuffer(GL_ARRAY_BUFFER, vboId_vertices);
-      /** orphaning **/
+      // Wait until buffer is free to use , in most cases this should not wait
+      // because we are using three buffers in chain , glClientWaitSync
+      // function can be used for check if the TIMEOUT is zero
+      if (fences[vboId_current] != 0) {// if fences not empty, check if it is still busy
+	GLenum result = glClientWaitSync(fences[vboId_current], 0, 0);
+	if ( result == GL_TIMEOUT_EXPIRED || result == GL_WAIT_FAILED)
+	  {
+	    std::cout << "VBO chain busy!\n" << std::endl;// Something is wrong
+	  }
+	glDeleteSync(fences[vboId_current]);
+      }
+      glBindBuffer(GL_ARRAY_BUFFER, vbo[vboId_current]);
+
+      float *ptr = (float*) glMapBufferRange(GL_ARRAY_BUFFER, 
+					     0, //offset
+					     3*mesh->numberofvertices*sizeof(float), // size
+					     GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+      // uploading vertices data
+      for (int i=0; i< 3*mesh->numberofvertices; ++i)
+	ptr[i] = mesh->vertices_tpd[i];
+
+      glUnmapBuffer(GL_ARRAY_BUFFER);
+
+      /*
+      // orphaning
       glBufferData(GL_ARRAY_BUFFER,
 		   3*mesh->numberofvertices*sizeof(float),
 		   NULL,
 		   GL_STREAM_DRAW);
-      /** uploading **/
+      // uploading
       glBufferData(GL_ARRAY_BUFFER, 
 		   3*mesh->numberofvertices*sizeof(float), 
 		   mesh->vertices_tpd,
 		   GL_STREAM_DRAW);    
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      */
+
+      glVertexPointer(3, GL_FLOAT, 0, 0); // last param is offset, not ptr
+      glBindBuffer(GL_ARRAY_BUFFER, 0); // IMPORTANT set to zero
       is_vbo_updated = true;
+
+      /** DRAW BASIC MESH **/
+      mesh->draw();
+      /*********************/
+
+      fences[vboId_current] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+      vboId_current = (vboId_current +1) % VBO_CHAIN_SIZE ;//to write next buffer
+    } else {    
+      /** DRAW BASIC MESH **/
+      mesh->draw();
+      /*********************/
     }
-    mesh->draw();
     //glDisable(GL_BLEND);
     //glDepthMask(GL_TRUE);
     glDisable(GL_COLOR_MATERIAL);
