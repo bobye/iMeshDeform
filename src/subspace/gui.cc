@@ -890,7 +890,7 @@ namespace subspace {
   }
 
 
-
+  int x_pbuffer, y_pbuffer;
   void pmotion(int x, int y) {
     if (current_state & LOCK_OBJECT_TRANSLATE) {
       glPushMatrix();
@@ -955,6 +955,10 @@ namespace subspace {
       currentScene->handsel->update();
       if(record_switch==1)
 	currentScene->handsel->record();
+      if (std::abs(x-x_pbuffer) + std::abs(y-y_pbuffer) > 10) {
+	display();
+	x_pbuffer = x; y_pbuffer = y;
+      }
     } else if (current_state & (LOCK_OBJECT_ROTATE|LOCK_OBJECT_TRANSLATE)) {
       glutPostRedisplay();
     }
