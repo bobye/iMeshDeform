@@ -54,6 +54,8 @@ namespace subspace {
   };
 
   class Object : public Geometry {
+  protected:
+    void init_buffers();
   public:
     // mesh data
     vMesh *mesh;    

@@ -8,22 +8,15 @@ namespace subspace {
   static GLuint vbo[VBO_CHAIN_SIZE], vboId_current;    
   static GLsync fences[VBO_CHAIN_SIZE] ={0};
 
-  Object::Object(TriangleMesh *pmesh) : mesh(pmesh){
-
-    //compute bounding box
-    pmesh->need_tstrips();
-    pmesh->need_bsphere();
-    size = 2*pmesh->bsphere.r;
-    center = pmesh->bsphere.center;
-
+  void Object::init_buffers() {
     xf = XForm::identity();
-    int vn = pmesh->numberofvertices;
+    int vn = mesh->numberofvertices;
 
     // allocate buffer chain
     glGenBuffers(VBO_CHAIN_SIZE, vbo);
     for (int i=0; i< VBO_CHAIN_SIZE; ++i) {
       glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);// bind VBO in order to use for vertices
-      glBufferData(GL_ARRAY_BUFFER, 3*vn*sizeof(float), pmesh->vertices_tpd, GL_STREAM_DRAW);
+      glBufferData(GL_ARRAY_BUFFER, 3*vn*sizeof(float), mesh->vertices_tpd, GL_STREAM_DRAW);
     }
 
     vboId_current = 0;//init
@@ -35,14 +28,14 @@ namespace subspace {
     is_vbo_updated = true; 
     vboId_current = (vboId_current +1) % VBO_CHAIN_SIZE ;//to write next buffer
 
-    glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
+    glNormalPointer(GL_FLOAT, 0, mesh->normals_tpd);
 
 
     color_base = new GLubyte[4*vn];
     color_render = new GLubyte[4*vn];
     
     for( int i=0 ; i<vn ; ++i ) {
-      if(pmesh->is_rigid[i]!=0) {
+      if(mesh->is_rigid[i]!=0) {
 	color_base[4*i]=128;color_base[4*i+1]=128;color_base[4*i+2]=128;color_base[4*i+3]=192;
 	color_render[4*i]=0;color_render[4*i+1]=0;color_render[4*i+2]=255;color_render[4*i+3]=0;
       }
@@ -53,31 +46,25 @@ namespace subspace {
     }
   }
 
+  Object::Object(TriangleMesh *pmesh) : mesh(pmesh){
+
+    //compute bounding box
+    pmesh->need_tstrips();
+    pmesh->need_bsphere();
+    size = 2*pmesh->bsphere.r;
+    center = pmesh->bsphere.center;
+
+    init_buffers();
+  }
+
   Object::Object(TetrahedronMesh *pmesh) : mesh(pmesh) {
     //compute bounding box
     pmesh->surface.need_tstrips();
     pmesh->surface.need_bsphere();
     size = 2*pmesh->surface.bsphere.r;
     center = pmesh->surface.bsphere.center;
-
-    xf = XForm::identity();
     
-    glNormalPointer(GL_FLOAT, 0, pmesh->normals_tpd);
-    glVertexPointer(3, GL_FLOAT, 0, pmesh->vertices_tpd);    
-    int vn = pmesh->numberofvertices;
-    color_base = new GLubyte[4*vn];
-    color_render = new GLubyte[4*vn];
-    
-    for( int i=0 ; i<vn ; ++i ) {
-      if(pmesh->is_rigid[i]!=0) {
-	color_base[4*i]=128;color_base[4*i+1]=128;color_base[4*i+2]=128;color_base[4*i+3]=192;
-	color_render[4*i]=0;color_render[4*i+1]=0;color_render[4*i+2]=255;color_render[4*i+3]=0;
-      }
-      else {
-	color_base[4*i]=77; color_base[4*i+1]=128; color_base[4*i+2]=154; color_base[4*i+3]=192;
-	color_render[4*i]=255;color_render[4*i+1]=215;color_render[4*i+2]=0; color_render[4*i+3]=0;
-      }
-    }
+    init_buffers();
   }
 
   Object::~Object() {

@@ -203,7 +203,7 @@ namespace subspace {
   /** frame flush timer func for on-the-fly mesh deforming **/
 #define _SS_FPS_MAX_RATE                    (200)
 #define _SS_FPS_FIX_RATE                    (30)
-#define _SS_FPS_MAX // _SS_FPS_FIX
+#define _SS_FPS_FIX // [_SS_FPS_FIX, _SS_FPS_MAX]
   static volatile bool timer_trigger;
   void display();
   void timer(int msecs) {
