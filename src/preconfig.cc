@@ -4,8 +4,8 @@
 using namespace subspace;
 
 
-//#define USE_TRIANGLE
-#define USE_TETRAHEDRON
+#define USE_TRIANGLE
+//#define USE_TETRAHEDRON
 
 #ifdef USE_TRIANGLE
 typedef TriangleMesh Mesh;
