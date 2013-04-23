@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
 
 #ifdef USE_TETRAHEDRON
   mesh->write("default.node");// write re-rank nodes;
+  mesh->surface.write("default.off");
 #endif
 
   LB op(argc, argv, mesh);
