@@ -652,6 +652,7 @@ namespace subspace {
     /**************************************************/
     // assembly matrix
     clock_start("Assembly Physical layer");
+    allocate();// allocate mem for computing VRDM
     //assembly();
     mesh->compute_subspace_assembly();
     clock_end();
@@ -739,7 +740,6 @@ namespace subspace {
     /**************************************************/
     // copy subspace solution data to global array
     clock_start("Preparing display layer");
-    allocate();// allocate mem for computing VRDM as follows:   
 
     Vec tmp; MatGetVecs(Ctrl2Geom, PETSC_NULL, &tmp);
 
