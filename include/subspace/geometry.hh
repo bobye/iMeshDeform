@@ -35,7 +35,7 @@ namespace subspace {
     // proxy I/O
 
     // load linear_proxies via vertices group
-    std::vector<double> linear_proxies;
+    std::vector<double> linear_proxies; // vn3 x lnn3 in column major
     void add_linear_proxies_vg(std::vector<int> &); // vg: vertices group
     void add_linear_proxies_ss(std::vector<int> &); // ss: sparse sampling
     void add_linear_proxies_custom(std::vector<double> &);// customed linear proxies

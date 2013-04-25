@@ -215,21 +215,21 @@ namespace subspace {
     PetscScalar *linear = & linear_proxies[currentsize];
 
     for (int i=0, j=0; i<vn; ++i, j+=3) {
-      linear[3*group_ids[i] + j*lnn3] = 1.; // row major
-      linear[3*group_ids[i] +1 + (j+1)*lnn3] = 1.; 
-      linear[3*group_ids[i] +2 + (j+2)*lnn3] = 1.; 
+      linear[(3*group_ids[i]   ) * vn3 + j] = 1.; // column major
+      linear[(3*group_ids[i] +1) * vn3 + (j+1)] = 1.; 
+      linear[(3*group_ids[i] +2) * vn3 + (j+2)] = 1.; 
       ++count_vertices[group_ids[i]];
     }
     for (int i=0, j=0; i<vn; ++i, j+=3) {
-      linear[3*group_ids[i] + j*lnn3] /count_vertices[group_ids[i]]; // normalize
-      linear[3*group_ids[i] +1 + (j+1)*lnn3] /= count_vertices[group_ids[i]]; 
-      linear[3*group_ids[i] +2 + (j+2)*lnn3] /= count_vertices[group_ids[i]]; 
+      linear[(3*group_ids[i]   ) * vn3 + j] /= count_vertices[group_ids[i]]; // normalize
+      linear[(3*group_ids[i] +1) * vn3 + (j+1)] /= count_vertices[group_ids[i]]; 
+      linear[(3*group_ids[i] +2) * vn3 + (j+2)] /= count_vertices[group_ids[i]]; 
     }
     
   }
 
   void vMesh::add_linear_proxies_ss(std::vector<int> &labeled_vtx) {    
-    
+    assert(vn == labeled_vtx.size());
     for (int i=0;i<vn; ++i)
       if (labeled_vtx[i] != 0) {
 	int currentsize = linear_proxies.size();
@@ -625,8 +625,10 @@ namespace subspace {
     for (int i=0; i<vn3; ++i) irow[i] = i;
     for (int i=0; i<lnn3; ++i) icol[i] = vn3 + en4 + i;
 
+    MatSetOption(VS, MAT_ROW_ORIENTED, PETSC_FALSE);
     MatSetValues(VS, vn3, irow, lnn3, icol, &linear_proxies[0], ADD_VALUES);
     delete [] irow; delete [] icol;
+    MatSetOption(VS, MAT_ROW_ORIENTED, PETSC_TRUE);
 
     PetscScalar zero = 0;
     for (int i=vn3 + en4; i<N; ++i) MatSetValues(VS, 1, &i, 1, &i, &zero, ADD_VALUES);
