@@ -35,13 +35,13 @@ namespace subspace {
     color_render = new GLubyte[4*vn];
     
     for( int i=0 ; i<vn ; ++i ) {
-      if(mesh->is_rigid[i]!=0) {
-	color_base[4*i]=128;color_base[4*i+1]=128;color_base[4*i+2]=128;color_base[4*i+3]=192;
-	color_render[4*i]=0;color_render[4*i+1]=0;color_render[4*i+2]=255;color_render[4*i+3]=0;
-      }
-      else {
+      if(mesh->is_rigid.empty() || mesh->is_rigid[i]==0) {
 	color_base[4*i]=77; color_base[4*i+1]=128; color_base[4*i+2]=154; color_base[4*i+3]=192;
 	color_render[4*i]=255;color_render[4*i+1]=215;color_render[4*i+2]=0; color_render[4*i+3]=0;
+      }
+      else {
+	color_base[4*i]=128;color_base[4*i+1]=128;color_base[4*i+2]=128;color_base[4*i+3]=192;
+	color_render[4*i]=0;color_render[4*i+1]=0;color_render[4*i+2]=255;color_render[4*i+3]=0;
       }
     }
   }

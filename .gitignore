@@ -7,16 +7,21 @@
 
 # I/O format
 *.off
+*.obj
+*.mtl
 *.xf
 *.ppm
 *.id
 *.png
 *.ss
+*.anim
 
 # Caches
 *.o
 CMakeCache.txt
 CMakeFiles/*
+*.txt
+*.log
 
 # 3rd Party
 3rd-party/*
