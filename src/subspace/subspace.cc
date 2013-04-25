@@ -663,12 +663,13 @@ namespace subspace {
     // convert to control layer
     clock_start("Preparing offline sparse system");
     Mat L, Ltmp, Ltmp2; 
-    MatConvert(VS, MATSEQAIJ, MAT_INITIAL_MATRIX, &L);    
+    MatConvert(VS, MATSEQAIJ, MAT_INITIAL_MATRIX, &L);  MatDestroy(&VS);  
 
-    MatMatMult(Ctrl2GeomT, L, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &Ltmp);
-    MatTranspose(Ltmp, MAT_INITIAL_MATRIX, &Ltmp2);
+    MatMatMult(Ctrl2GeomT, L, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &Ltmp);  MatDestroy(&L);
 
-    MatMatMult(Ctrl2GeomT, Ltmp2, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &L);
+    MatTranspose(Ltmp, MAT_INITIAL_MATRIX, &Ltmp2); MatDestroy(&Ltmp);
+
+    MatMatMult(Ctrl2GeomT, Ltmp2, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &L); MatDestroy(&Ltmp2);
 
     MatCreateSeqAIJ(PETSC_COMM_SELF, cn + en4 + ln3, 
 		    cn + en4 + ln3, 1, PETSC_NULL, &Ltmp);
@@ -687,7 +688,6 @@ namespace subspace {
 
     MatAXPY(L, 1, Ltmp, DIFFERENT_NONZERO_PATTERN);
     
-    MatDestroy(&Ltmp); MatDestroy(&Ltmp2); MatDestroy(&VS);  
 
     KSP ksp;
     PC direct_solver;
