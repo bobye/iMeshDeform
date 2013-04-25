@@ -687,7 +687,7 @@ namespace subspace {
     MatAssemblyEnd(Ltmp,MAT_FINAL_ASSEMBLY);
 
     MatAXPY(L, 1, Ltmp, DIFFERENT_NONZERO_PATTERN);
-    
+    MatDestroy(&Ltmp);    
 
     KSP ksp;
     PC direct_solver;
@@ -696,8 +696,10 @@ namespace subspace {
 
     for (int i=0; i<lnn3; ++i) MatGetVecs(L, &cVS_L[i], PETSC_NULL);
     for (int i=0; i<rn9; ++i) MatGetVecs(L, &cVS_R[i], PETSC_NULL);
-    for (int i=0; i<lnn3; ++i) MatMult(Ctrl2GeomT, VS_L[i], cVS_L[i]);
-    for (int i=0; i<rn9; ++i) MatMult(Ctrl2GeomT, VS_R[i], cVS_R[i]);
+    for (int i=0; i<lnn3; ++i) MatMult(Ctrl2GeomT, VS_L[i], cVS_L[i]); 
+    for (int i=0; i<rn9; ++i) MatMult(Ctrl2GeomT, VS_R[i], cVS_R[i]); 
+
+    MatDestroy(&Ctrl2GeomT);
     for (int i=0; i<lnn3; ++i) VecDestroy(&VS_L[i]); delete [] VS_L;
     for (int i=0; i<rn9; ++i) VecDestroy(&VS_R[i]); delete [] VS_R;
 
