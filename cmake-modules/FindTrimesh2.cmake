@@ -11,7 +11,9 @@ SET(TRIMESH2_LIB_DIR     "${TRIMESH2_DIR}/lib.${TRIMESH2_ARCH}" )
 
 FIND_LIBRARY(TRIMESH2_LIB     trimesh
              HINTS ${TRIMESH2_LIB_DIR})
-SET(TRIMESH2_LIBRARIES ${TRIMESH2_LIB} CACHE STRING "trimesh2 libraries" FORCE)
+FIND_LIBRARY(GLUIT_LIB     gluit
+             HINTS ${TRIMESH2_LIB_DIR})
+SET(TRIMESH2_LIBRARIES ${TRIMESH2_LIB} ${GLUIT_LIB} CACHE STRING "trimesh2 libraries" FORCE)
 
 # handle the QUIETLY and REQUIRED arguments and set ALSA_FOUND to TRUE if 
 # all listed variables are TRUE
