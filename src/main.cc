@@ -5,12 +5,15 @@ using namespace trimesh;
 using namespace subspace;
 
 
+GLubyte rightImage[400][400][3] = {{{0}}};
+
 #define UI_DEBUG
 
 int main(int argc, char *argv[])
 {
   // read mesh
   TriMesh *mesh = TriMesh::read(argv[1]);
+  mesh->allocate_data_tightpacked();
   if (!mesh) exit(1);
   int vn = mesh->vertices.size();
 
@@ -26,7 +29,6 @@ int main(int argc, char *argv[])
   if (!fid) exit(1); 
   for (int i=0; i<vn; ++i) fid >> group_ids2[i];
   fid.close();  
-
   */
 
   /*
@@ -47,6 +49,8 @@ int main(int argc, char *argv[])
   Object object = Object(mesh);
   object.register_mesh();
   scene.bind(&object);
+  scene.rightImage = rightImage;
+
   //  scene.bind(&ss_solver); // bind mesh to subspace solver
 
 

@@ -110,6 +110,7 @@ namespace subspace {
     HandlerSelect *handsel;
     Geometry *context;//default set to object
 
+    const GLvoid *rightImage;
 
     int (*animator)();
     //Subspace *ss_solver;//subspace solver

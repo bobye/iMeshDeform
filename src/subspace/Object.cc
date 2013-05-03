@@ -19,15 +19,23 @@ namespace subspace {
 
   void Object::register_mesh() {
     //load geometric information 
+    /*
     mesh->need_normals();
     glNormalPointer(GL_FLOAT, sizeof(mesh->normals[0]), &mesh->normals[0][0]);
     glVertexPointer(3, GL_FLOAT, sizeof(mesh->vertices[0]), &mesh->vertices[0][0]);    
+    */
+    
+    glNormalPointer(GL_FLOAT, 0, mesh->normals_tightpacked);
+    glVertexPointer(3, GL_FLOAT, 0, mesh->vertices_tightpacked);
   }
 
   void Object::register_mesh(float *vbo) {
-    mesh->need_normals();
-    glNormalPointer(GL_FLOAT, sizeof(mesh->normals[0]), &mesh->normals[0][0]);
-    glVertexPointer(3, GL_FLOAT, 0 , vbo);    
+    //    mesh->need_normals();
+    //glNormalPointer(GL_FLOAT, sizeof(mesh->normals[0]), &mesh->normals[0][0]);
+    //glVertexPointer(3, GL_FLOAT, 0 , vbo);    
+
+    glNormalPointer(GL_FLOAT, 0, mesh->normals_tightpacked);
+    glVertexPointer(3, GL_FLOAT, 0, vbo); 
 
     /*
     glGenBuffers(1, &vbo_reg);
@@ -35,6 +43,7 @@ namespace subspace {
     glBufferData(GL_ARRAY_BUFFER, sizeof(float)*3*mesh->vertices.size(), vbo, GL_DYNAMIC_DRAW);
     */
   }
+
 
   void draw_tstrips(const Mesh *themesh)
   {
@@ -66,6 +75,14 @@ namespace subspace {
   }
 
 
+  void draw_triangles(const Mesh*themesh) {
+
+    glDrawElements(GL_TRIANGLES, 3*themesh->faces.size(), GL_UNSIGNED_INT, 
+		   themesh->face_indices_tightpacked);
+
+
+  }
+
   void Object::draw() {
 
     glEnable(GL_COLOR_MATERIAL);
@@ -87,7 +104,10 @@ namespace subspace {
     glEnableClientState(GL_VERTEX_ARRAY);
     */
     //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
-    draw_tstrips(mesh);
+    draw_triangles(mesh);
+    //draw_tstrips(mesh);
+    
+    
     //glDisable(GL_BLEND);
     //glDepthMask(GL_TRUE);
     glDisable(GL_COLOR_MATERIAL);
@@ -97,9 +117,13 @@ namespace subspace {
     glDisable(GL_LIGHTING);
     glMultMatrixf(xf);	  
     //glDrawElements(GL_TRIANGLES, 3*mesh->faces.size(), GL_UNSIGNED_INT, &mesh->faces[0][0]);
-    draw_tstrips(mesh);
+    draw_triangles(mesh);
+    //draw_tstrips(mesh);
     glEnable(GL_LIGHTING);
   }
   
 }
+
+
+
 

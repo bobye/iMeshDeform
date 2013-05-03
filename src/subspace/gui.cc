@@ -121,7 +121,7 @@ namespace subspace {
 
   Scene::Scene(int argc, char** argv) 
   {
-    width = height = 800;
+    width = height = 400;
     currentScene = this; //static member need definition
 
     glutInit(&argc, argv);
@@ -194,6 +194,11 @@ namespace subspace {
     
   }
 
+  void display_image() {
+    glRasterPos2i(width-100, 0);
+    glDrawPixels(100, 100, GL_RGB, GL_UNSIGNED_BYTE, currentScene->rightImage);
+    //glFlush();
+  }
 
   void display_action() {
     glColor4f(1, 1, 1, 0.75);
@@ -290,6 +295,7 @@ namespace subspace {
     gluOrtho2D(0.0, viewport[2], 0.0, viewport[3]);
     display_action();
     display_text();
+    display_image();
 
     glEnable(GL_LIGHTING);
     glEnable(GL_DEPTH_TEST);    
@@ -397,21 +403,21 @@ namespace subspace {
 
 
 
-    glViewport( 0, 0, w, h );
+    glViewport( 0, 0, width, height );
 
     glMatrixMode(GL_PROJECTION);
 
     glLoadIdentity();
     
     if (orthOrNot) {
-      glOrtho(  - win_world_radio *  w/2,   + win_world_radio * w/2,
-		- win_world_radio *  h/2,   + win_world_radio * h/2,
+      glOrtho(  - win_world_radio *  width/2,   + win_world_radio * width/2,
+		- win_world_radio *  height/2,   + win_world_radio * height/2,
 		//100000, -100000);
 		currentScene->object->size,   20* currentScene->object->size);//(NEW) set up our viewing area
     }
 
     else {           
-      gluPerspective(30, (float)w/(float)h, currentScene->object->size, 20*currentScene->object->size);
+      gluPerspective(30, (float)width/(float)height, currentScene->object->size, 20*currentScene->object->size);
     }
 	/*
       glFrustum(  - radio * w/perfect_factor,   radio * w/perfect_factor,
