@@ -5,8 +5,8 @@
 #include "subspace.hh"
 
 #define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
-#include <GL/glut.h>
+#include "GL/gl.h"
+#include "GL/glut.h"
 
 namespace subspace {
   class Scene;
