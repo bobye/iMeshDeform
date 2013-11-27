@@ -1,6 +1,8 @@
 iMeshDeform
 ===========
-Variational Reduced Deformable Model
+Demand-Oriented Variational Subspace Design
+
+contributors: Jianbo Ye and Zhixin Yan
 
 Prerequisites:
 
@@ -10,13 +12,13 @@ Prerequisites:
 
 Libraries:
 
- - OpenGL + GLUT
- - PETSc with external sparse direct solver, e.g. mumps/umfpack
+ - OpenGL (version 2.1 or above) + GLUT
+ - PETSc (with external sparse direct solver, e.g. mumps/umfpack)
  - SLEPc
  - [Intel MKL](http://software.intel.com/en-us/articles/intel-math-kernel-library-documentation)
  - [trimesh2++](https://github.com/bobye/trimesh2plus)
 
-Env variables:
+Sample env variables:
 
 	source /opt/intel/bin/compilervars.sh intel64
 	export SLEPC_DIR=/home/bobye/pub/slepc/slepc-3.3-p3
