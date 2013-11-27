@@ -2,7 +2,7 @@ iMeshDeform
 ===========
 Demand-Oriented Variational Subspace Design
 
-contributors: Jianbo Ye and Zhixin Yan
+Contributors: Jianbo Ye and Zhixin Yan
 
 Prerequisites:
 
