@@ -15,10 +15,10 @@ FIND_PACKAGE(PETSc REQUIRED)
 FIND_PACKAGE(SLEPc REQUIRED)
 
 INCLUDE_DIRECTORIES(include ${PETSC_INCLUDES} ${SLEPC_INCLUDES} ${TRIMESH2_INCLUDES})
-#INCLUDE(${CGAL_USE_FILE})
 ADD_DEFINITIONS(${PETSC_DEFINITIONS})
 
-SET(CMAKE_CXX_FLAGS "-O2 -Wall -Wextra -Wno-parentheses -Wno-unused -Wno-sign-compare -Wno-unknown-pragmas -mkl -openmp -pthread")
+# Static linking with Intel MKL
+SET(CMAKE_CXX_FLAGS "-O2 -Wall -Wextra -Wno-parentheses -Wno-unused -Wno-sign-compare -Wno-unknown-pragmas -mkl -openmp -pthread -static-intel")
 SET(LIBS ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${PETSC_LIBRARIES} ${SLEPC_LIBRARIES} ${TRIMESH2_LIBRARIES})
 
 
