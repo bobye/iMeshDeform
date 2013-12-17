@@ -38,3 +38,4 @@ How to run:
 	./run.sh
 
 Demo:
+See demo.zip in root directory, and find accompanied tuturial.md for instructions.
