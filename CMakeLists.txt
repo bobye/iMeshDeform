@@ -22,8 +22,8 @@ INCLUDE_DIRECTORIES(include ${TRIMESH2_INCLUDES})
 #INCLUDE(${CGAL_USE_FILE})
 #ADD_DEFINITIONS(${PETSC_DEFINITIONS})
 
-SET(CMAKE_CXX_FLAGS "-O2 -Wall -Wextra -Wno-parentheses -Wno-unused -Wno-sign-compare -Wno-unknown-pragmas -fopenmp")
-SET(LIBS ${TRIMESH2_LIBRARIES} "-static-libgcc -static-libstdc++ -lwinmm -lopengl32 -lglu32 -lgdi32")
+SET(CMAKE_CXX_FLAGS "-m32 -O2 -Wall -Wextra -Wno-parentheses -Wno-unused -Wno-sign-compare -Wno-unknown-pragmas -fopenmp")
+SET(LIBS ${TRIMESH2_LIBRARIES} "-static -lwinmm -lopengl32 -lglu32 -lgdi32")
 
 
 ADD_SUBDIRECTORY(src/subspace lib/subspace)
