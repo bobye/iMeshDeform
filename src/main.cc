@@ -11,12 +11,19 @@ GLubyte rightImage[400][400][3] = {{{0}}};
 
 int main(int argc, char *argv[])
 {
-  // read mesh
+  // read mesh  
   TriMesh *mesh = TriMesh::read(argv[1]);
   mesh->allocate_data_tightpacked();
   if (!mesh) exit(1);
   int vn = mesh->vertices.size();
-
+  /*
+  float *vertices = new float[3*vn];
+  for (int i=0; i<vn; ++i) {
+    vertices[3*i] = mesh->vertices[i][0];
+    vertices[3*i+1] = mesh->vertices[i][1];
+    vertices[3*i+2] = mesh->vertices[i][2];
+  }
+  */
   // load linear proxies
   /*
   std::fstream fid(argv[2]); std::vector<int> group_ids1; group_ids1.resize(vn);
@@ -46,7 +53,10 @@ int main(int argc, char *argv[])
   
   Scene scene(argc, argv);
 
+
   Object object = Object(mesh);
+  object.name = std::string(argv[1]);
+  //  object.register_mesh(vertices);
   object.register_mesh();
   scene.bind(&object);
   scene.rightImage = rightImage;

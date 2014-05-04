@@ -30,6 +30,53 @@ namespace subspace {
     //    black = (GLubyte *) &iBlack[0];
 
   }
+
+  int VertSelect::pick_vertex(int winX, int winY) {
+    //std::cout << winX << " " << winY << " ";
+    int nWidth = 21, nHeight = 21;
+    winX -= 10; winY -=10;
+    glEnableClientState(GL_COLOR_ARRAY);
+
+    glDrawBuffer(GL_BACK);
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);//(NEW) setup our buffers
+    /** CullFace enable */
+    glEnable(GL_CULL_FACE);
+    glPushMatrix();
+    glPolygonMode(GL_FRONT, GL_POINT);
+    glColorPointer(3, GL_UNSIGNED_BYTE, 0, index);
+    object->back_draw();
+    glDisable(GL_CULL_FACE);
+    glPopMatrix();
+    glDisableClientState(GL_COLOR_ARRAY);
+
+    unsigned int nTotal = nWidth * nHeight;
+    GLubyte *pRGBA = new GLubyte [4*nTotal];
+    glReadBuffer(GL_BACK);
+    glReadPixels(winX, winY, nWidth, nHeight, GL_RGBA, GL_UNSIGNED_BYTE, &pRGBA[0]);
+    int *ptr = new int[nTotal];
+
+    for (int i=0; i<nTotal; ++i) {
+      ptr[i] = pRGBA[4*i] + (pRGBA[4*i+1]<<8) + (pRGBA[4*i+2]<<16);
+    }
+
+    int mindis=(nWidth*nHeight)/4, minindex = 0;
+    int center_x = nWidth/2, center_y=nHeight/2;
+    for (int i=0; i<nWidth; ++i)
+      for (int j=0; j<nHeight; ++j) 
+	if (ptr[nHeight*i+j] > 0){
+	  int dis = (i-center_x) * (i-center_x) + (j-center_y) * (j-center_y);
+	  if (mindis > dis) {
+	    mindis = dis;
+	    minindex = ptr[nHeight*i+j];
+	  }
+	}
+    delete [] pRGBA;
+    delete [] ptr;
+
+    return minindex;
+
+  }
+
   void VertSelect::register_selected(int winX, int winY, int nWidth, int nHeight, bool toselect, bool onlyone){
 
     glDrawBuffer(GL_BACK);
@@ -56,9 +103,10 @@ namespace subspace {
     glReadPixels(winX, winY, nWidth, nHeight, GL_RGBA, GL_UNSIGNED_BYTE, &pRGBA[0]);
     int *ptr = new int[nTotal];
 
-    for (int i=0; i<nTotal; ++i)
+    for (int i=0; i<nTotal; ++i) {
       ptr[i] = pRGBA[4*i] + (pRGBA[4*i+1]<<8) + (pRGBA[4*i+2]<<16);
-    
+    }    
+
     if (onlyone) {
       int mindis=(nWidth*nHeight)/4, minindex = 0;
       int center_x = nWidth/2, center_y=nHeight/2;
@@ -176,6 +224,8 @@ namespace subspace {
 	    minindex = ptr[nHeight*i+j];
 	  }
 	}
+    if (minindex >0) std::cout << "Hit handler " << minindex << std::endl;
+    else std::cout << "Clear selections" << std::endl;
 
     if (toselect) 
       {
@@ -238,6 +288,7 @@ namespace subspace {
 	selected.erase(iter);
 	constraint_points.erase(piter);
 	constraints.erase(viter);
+	std::cout << "Remove linear constraint" << std::endl;
       } else {
 	++iter; ++piter; ++viter;
       }
@@ -248,7 +299,8 @@ namespace subspace {
   }
 
   void HandlerSelect::export_selected(){//point constraint only, index started from 1
-    std::ofstream fp; fp.open("object.sd");
+    std::string filename = object->name;
+    std::ofstream fp; fp.open(filename.append(".sd").c_str());
     int rt_count = constraints.size();
     for (int i=0; i<rt_count; ++i) {
       for (int j=0; j<vn; ++j)
@@ -262,25 +314,29 @@ namespace subspace {
 	}
     }
     fp.close();
-    std::cout << "Export selected vertices into object.sd" << std::endl;
+    std::cout << "Export " << selected.size() << " selected vertices into " << filename << std::endl;
   }
 
   void HandlerSelect::import_selected(){
-    std::fstream fp; fp.open("object.sd");
+    std::string filename = object->name;
+    std::fstream fp; fp.open(filename.append(".sd").c_str());
     int i, count =0;
     double x,y,z;
-    while (fp.good()) {
-      fp >> i >> x >> y >> z;
+    constraints.clear();
+    constraint_points.clear();
+    selected.clear();
+
+    while (fp >> i >> x >> y >> z) {      
       constraints.push_back(std::vector<float>(vn));
       
       for (int j =0; j<vn; ++j) constraints[count][j] = 0;
-      constraints[count++][i] = 1;
+      constraints[count++][i-1] = 1;
       constraint_points.push_back(Point(x,y,z));
       selected.push_back(false);
     }
     fp.close();
     constraint_points_buffer = constraint_points;
-    std::cout << "Import selected vertices from object.sd" << std::endl;
+    std::cout << "Import " << selected.size() << " selected vertices from " << filename << std::endl;
   }
   /*
   void HandlerSelect::manipulate_constraint_points(GLfloat *xf){
@@ -316,7 +372,7 @@ namespace subspace {
 	glColor3f(.5, .2, .2); 
       else glColor3f(0, .5, .5);
       glTranslatef(constraint_points[i][0], constraint_points[i][1], constraint_points[i][2]);
-      glutSolidSphere(7*win_world_radio, 20, 20);
+      glutSolidSphere(3*win_world_radio, 10, 10);
       glPopMatrix();
     }
   }
@@ -328,6 +384,22 @@ namespace subspace {
     ss_solver->prepare(constraints, constraint_points);
   }
   */
+
+  int HandlerSelect::set_editing_selected(){
+    int i=0, hn=constraint_points.size();
+    while (!selected[i] && i<hn) ++i; 
+    if (i==hn) {std::cout << "Warning: no handler selected!" <<std::endl; return -1;}
+    return i;
+  }
+
+  void HandlerSelect::set_selected_pos(int i, int v, bool reset) {
+    if (v == 0) return; // no vertex selected, do nothing
+    if (reset) {
+      for (int j=0; j<vn; ++j) constraints[i][j] = 0;
+      constraints[i][v-1] = 1;    
+    }
+    constraint_points[i] = object->mesh->vertices[v-1];
+  }
 
   Point HandlerSelect::set_focus(){
     int hn = constraint_points.size(), count =0;
@@ -342,3 +414,8 @@ namespace subspace {
     else return object->center;
   }
 }
+
+
+
+
+

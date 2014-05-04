@@ -31,7 +31,10 @@ namespace subspace {
 
   static bool object_rotate_switch = false,
     orthOrNot=false,
-    wireOrNot=false;
+    wireOrNot=false,
+    is_moving_handler = false;
+  static int moving_handler = -1;
+  static Geometry *context_buffer;
 
   char current_state = 0x00;
 #define LOCK_VIEW_TRANSLATE   0x01
@@ -129,7 +132,7 @@ namespace subspace {
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowPosition(200.0, 0.0);
     glutInitWindowSize(width, height);
-    glutCreateWindow("iMeshDeform - Viewer");
+    glutCreateWindow("iVertSelect - Viewer");
 
     glShadeModel(GL_SMOOTH);// Enable Smooth Shading
     
@@ -235,7 +238,7 @@ namespace subspace {
     glEnable(GL_COLOR_MATERIAL);
     glColor4f(0.3, 0.3, 0.3, 0.75);
 
-
+    /*
     glBegin(GL_LINES);    
     for (int i = -20; i<=20; ++i) {
       glVertex3f( i * ground_wire, 0,  (-20) * ground_wire);
@@ -245,7 +248,7 @@ namespace subspace {
     }
     glEnd();
     
-
+    */
 
     if (current_state & LOCK_MODE_SELECT) {
       glPushMatrix();//push i-th matrix
@@ -266,12 +269,12 @@ namespace subspace {
 
     currentScene->object->draw();		    
 
-    glDisable(GL_DEPTH_TEST);
     glEnable(GL_COLOR_MATERIAL);
 
 
     currentScene->handsel->draw(win_world_radio);
 
+    glDisable(GL_DEPTH_TEST);
 
     glPushMatrix();
     glColor4f(.5, .5, 0., 0.75);
@@ -505,11 +508,13 @@ namespace subspace {
       if (current_state & LOCK_MODE_SELECT ) { // return to normal mode
 	current_state = 0;
 	wireOrNot = false;
-	currentScene->context = currentScene->object;
+	//currentScene->context = currentScene->object;
+	currentScene->context = context_buffer;
 	glDisableClientState(GL_COLOR_ARRAY);
       } else { // set select mode
 	current_state = LOCK_MODE_SELECT;
 	wireOrNot = true;
+	context_buffer = currentScene->context;
 	currentScene->context = currentScene->vertsel;
 	glEnableClientState(GL_COLOR_ARRAY);
       }
@@ -522,13 +527,22 @@ namespace subspace {
 	currentScene->context = currentScene->object;
 	glutPostRedisplay();
       }
+      else if (key=='e' && !is_moving_handler) {
+	currentScene->set_buffer();
+	moving_handler = currentScene->handsel->set_editing_selected();//single point selected	
+	if (moving_handler!=-1) { 
+	  std::cout << "Editing handler " << moving_handler+1 << " ... ";
+	  is_moving_handler = true;
+	  glutSetCursor(GLUT_CURSOR_CROSSHAIR);
+	}
+      }
 
       if (key == 'P') {
 	//currentScene->handsel->set_solver(currentScene->ss_solver);
-	glutIdleFunc(animate);
+	//glutIdleFunc(animate);
 	glutPostRedisplay();
       } else if (key == 'S') {
-	currentScene->cursor = currentScene->handsel->set_focus();
+	//currentScene->cursor = currentScene->handsel->set_focus();
 	//	currentScene->handsel->toggle_dump(currentScene->ss_solver);
 	glutPostRedisplay();
       }
@@ -619,7 +633,8 @@ namespace subspace {
 
     } else if (current_state & LOCK_MODE_SELECT) {   
       if (key == 'b') {
-	current_state |= LOCK_BACK_BUFFER_SELECT;     
+	// disable rectangle selection
+	//current_state |= LOCK_BACK_BUFFER_SELECT;     
       }
       else if (key == 'a') {
 	((VertSelect*) currentScene->context)->toggle_selected();	
@@ -811,8 +826,15 @@ namespace subspace {
     if(currentScene->context == currentScene->handsel &&
        (current_state & (LOCK_OBJECT_ROTATE|LOCK_OBJECT_TRANSLATE))) {
       currentScene->handsel->update();
+    } 
+    /*
+    else if (currentScene->context == currentScene->handsel &&
+	     is_moving_handler) {
+      currentScene->handsel->
+	set_selected_pos(moving_handler, currentScene->vertsel->pick_vertex(x, viewport[3] -y));
+      glutPostRedisplay();
     }
-
+    */
   }
 
 // compatibility with original GLUT
@@ -883,7 +905,14 @@ namespace subspace {
 	  glutPostRedisplay();
 	}
 	else if (current_state & LOCK_BACK_BUFFER_SELECT) { origin_x = x; origin_y = y;}
-
+	else if (currentScene->context == currentScene->handsel && is_moving_handler) {
+	  currentScene->handsel->
+	    set_selected_pos(moving_handler, currentScene->vertsel->pick_vertex(x, viewport[3] -y), true);
+	  is_moving_handler = false;	  
+	  std::cout << "[Done]" << std::endl;
+	  glutSetCursor(GLUT_CURSOR_INHERIT);
+	  glutPostRedisplay();
+	}
       }
       else if (state == GLUT_UP) {
 	if (current_state & LOCK_BACK_BUFFER_SELECT) {
@@ -909,6 +938,12 @@ namespace subspace {
 	  current_state &= ~LOCK_OBJECT_ROTATE;
 	  object_rotate_switch = false;
 	  currentScene->restore_buffer();
+	}
+	if (currentScene->context == currentScene->handsel && is_moving_handler) {
+	  currentScene->restore_buffer();
+	  std::cout << "[Cancel]" << std::endl;
+	  glutSetCursor(GLUT_CURSOR_INHERIT);
+	  is_moving_handler = false;
 	}
 	if (current_state & LOCK_MODE_SELECT) {
 	  if (glutGetModifiers() == GLUT_ACTIVE_SHIFT) 

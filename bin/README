@@ -1,0 +1,30 @@
+iVertSelect: a simple annotation tool to select vertices on mesh, with import/export
+ye[at]jianbo[dot]ws
+
+- open mesh object via command line
+  iVertSelect.exe mesh.obj
+  
+- swith view mode
+  * (press) Tab                  -- switch between normal mode and selecting mode  
+  
+- view mesh (under both mode)
+Note: LMB/MMB/RMB is the left/middle/right mouse button
+  * (hold) MMB                   -- rotation view
+  * (hold) Shift + MMB           -- translate view
+  * (roll) MMB                   -- scale view
+  
+- select a vertex on mesh and add it to sequence
+  1. switch to selecting mode [Tab]
+  2. [RMB] to select a target location on mesh (nearest vertex is then highlighted in yellow)
+  3. press [Shift + a], and then [h]. This vertex is appended to sequence as a landmark
+  4. [Tab] switch back to normal mode
+  
+- Edit/Delete a landmark in sequence
+  1. under normal mode, [RMB] to select the landmark
+  2a. press [e], then [LMB] to relocate the landmark, [RMB] to cancel
+  2b. press [d] to delete the selected landmark from sequence
+  3. press [RMB] away from selected landmark to clear selection.
+  
+- Import/Export sequence
+  1. [Shift + s] import landmark sequence from mesh.obj.sd
+  2. [Ctrl + s] export current landmark sequence to mesh.obj.sd
