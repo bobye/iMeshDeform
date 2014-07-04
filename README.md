@@ -1,6 +1,6 @@
 iMeshDeform
 ===========
-Demand-Oriented Variational Subspace Design
+Variational Subspace For Deformable Surface and Solid
 
 Contributors: Jianbo Ye and Zhixin Yan
 
