@@ -1,6 +1,6 @@
 iMeshDeform
 ===========
-Variational Subspace For Deformable Surface and Solid
+Variational Subspace For Deformable Surfaces and Solids (submitted)
 
 Contributors: Jianbo Ye and Zhixin Yan
 
