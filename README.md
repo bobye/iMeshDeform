@@ -1,8 +1,10 @@
-iMeshDeform
+iMeshDeform: 
 ===========
-Variational Subspace For Deformable Surfaces and Solids (submitted)
+Linear Variational Subspace For Deformable Surfaces and Solids (Contributors: Jianbo Ye and Zhixin Yan)
 
-Contributors: Jianbo Ye and Zhixin Yan
+Our working paper:
+
+Jianbo Ye, Zhixin Yan, and James Z. Wang, "On the Approximation Theory of Linear Variational Subspace Design"
 
 Prerequisites:
 
