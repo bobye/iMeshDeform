@@ -4,7 +4,7 @@ Linear Variational Subspace For Deformable Surfaces and Solids (Contributors: Ji
 
 Our working paper:
 
-Jianbo Ye and Zhixin Yan, "On the Approximation Theory of Linear Variational Subspace Design"
+Jianbo Ye and Zhixin Yan, "On the Approximation Theory of Linear Variational Subspace Design", [arXiv:1506.08459](http://arxiv.org/abs/1506.08459) [cs.GR]
 
 Prerequisites:
 
