@@ -6,6 +6,8 @@ Our working paper:
 
 Jianbo Ye and Zhixin Yan, "On the Approximation Theory of Linear Variational Subspace Design", [arXiv:1506.08459](http://arxiv.org/abs/1506.08459) [cs.GR]
 
+[![](https://raw.githubusercontent.com/bobye/iMeshDeform/master/screenshot.png)](https://vimeo.com/132393849)
+
 Prerequisites:
 
  - Linux
